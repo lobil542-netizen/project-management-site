@@ -41,7 +41,7 @@
             font-family: 'Heebo', sans-serif; font-weight: 700; font-size: 1.1rem;
             cursor: pointer; transition: all 0.2s; margin-top: 1.5rem; background: #dc2626; color: white;
         }
-        .btn:hover { background: #b91c1c; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4); }
+        .btn:hover { background: #b91c1c; transform: translateY(-1px); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .success { display: none; text-align: center; }
         .success.show { display: block; }
@@ -126,11 +126,8 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
     <script>
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
         async function submitExit(e) {
             e.preventDefault();
             const btn = document.getElementById('submitBtn');
@@ -143,31 +140,30 @@
             const workDone = document.getElementById('workDone').value.trim();
             const now = new Date();
 
-            const { error } = await supabase.from('attendance').insert({
-                type: 'checkout',
-                full_name: fullName,
-                role: role,
-                worker_id: workerId,
-                work_done: workDone,
-                time_display: now.toLocaleString('he-IL'),
-                date: now.toLocaleDateString('he-IL')
-            });
+            try {
+                await supabaseInsert('attendance', {
+                    type: 'checkout',
+                    full_name: fullName,
+                    role: role,
+                    worker_id: workerId,
+                    work_done: workDone,
+                    time_display: now.toLocaleString('he-IL'),
+                    date: now.toLocaleDateString('he-IL')
+                });
 
-            if (error) {
-                alert('שגיאה בשליחה: ' + error.message);
+                document.getElementById('formView').style.display = 'none';
+                document.getElementById('successView').classList.add('show');
+                document.getElementById('summary').innerHTML =
+                    `<strong>שם:</strong> ${fullName}<br>` +
+                    `<strong>תפקיד:</strong> ${role}<br>` +
+                    `<strong>מס' עובד:</strong> ${workerId}<br>` +
+                    `<strong>מה בוצע:</strong> ${workDone}<br>` +
+                    `<strong>זמן יציאה:</strong> ${now.toLocaleString('he-IL')}`;
+            } catch (err) {
+                alert('שגיאה: ' + err.message);
                 btn.disabled = false;
                 btn.textContent = 'רישום יציאה';
-                return;
             }
-
-            document.getElementById('formView').style.display = 'none';
-            document.getElementById('successView').classList.add('show');
-            document.getElementById('summary').innerHTML =
-                `<strong>שם:</strong> ${fullName}<br>` +
-                `<strong>תפקיד:</strong> ${role}<br>` +
-                `<strong>מס' עובד:</strong> ${workerId}<br>` +
-                `<strong>מה בוצע:</strong> ${workDone}<br>` +
-                `<strong>זמן יציאה:</strong> ${now.toLocaleString('he-IL')}`;
         }
 
         function resetForm() {

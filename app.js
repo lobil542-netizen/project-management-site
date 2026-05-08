@@ -69,7 +69,6 @@ const DEFAULT_DATA = {
 
 // ========== אתחול מערכת ==========
 let data;
-let supabaseClient;
 let supabaseAttendance = [];
 
 function initData() {
@@ -90,10 +89,8 @@ function initData() {
 
 async function initSupabase() {
     try {
-        if (typeof SUPABASE_URL !== 'undefined' && typeof SUPABASE_KEY !== 'undefined') {
-            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        if (typeof supabaseSelect === 'function') {
             await loadAttendance();
-            // רענון אוטומטי כל 30 שניות
             setInterval(loadAttendance, 30000);
         }
     } catch (e) {
@@ -102,21 +99,17 @@ async function initSupabase() {
 }
 
 async function loadAttendance() {
-    if (!supabaseClient) return;
-    const { data: records, error } = await supabaseClient
-        .from('attendance')
-        .select('*')
-        .order('time', { ascending: false })
-        .limit(200);
-
-    if (!error && records) {
-        supabaseAttendance = records;
+    try {
+        const records = await supabaseSelect('attendance');
+        supabaseAttendance = records || [];
         if (document.getElementById('tab-overview')?.classList.contains('active')) {
             renderOverview();
         }
         if (document.getElementById('tab-logs')?.classList.contains('active')) {
             renderLogs();
         }
+    } catch (e) {
+        console.log('Error loading attendance:', e.message);
     }
 }
 
