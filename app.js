@@ -770,32 +770,21 @@ function renderHours() {
 
     const workers = Object.values(workerHours).sort((a, b) => b.totalHours - a.totalHours);
 
+    // Get month label for display
+    const [selY, selM] = selectedMonth.split('-');
+    const monthLabel = new Date(selY, selM - 1).toLocaleDateString('he-IL', { year: 'numeric', month: 'long' });
+
     if (workers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">אין נתוני שעות לחודש זה</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="empty-state">אין נתוני שעות לחודש זה</td></tr>`;
     } else {
         tbody.innerHTML = workers.map(w => {
-            const done = w.totalHours;
-            const target = 250;
-            const remaining = Math.max(0, target - done);
-            const pct = Math.min(100, (done / target) * 100);
-            let color = '#059669';
-            if (pct < 25) color = '#dc2626';
-            else if (pct < 50) color = '#f97316';
-            else if (pct < 75) color = '#eab308';
-
             return `
             <tr>
                 <td><strong>${w.workerId}</strong></td>
                 <td>${w.name}</td>
                 <td><span class="badge badge-type">${w.role}</span></td>
-                <td><strong>${done.toFixed(1)}</strong></td>
-                <td>250</td>
-                <td>${remaining.toFixed(1)}</td>
-                <td>
-                    <div class="progress-bar">
-                        <div class="fill" style="width: ${pct}%; background: ${color};">${pct.toFixed(0)}%</div>
-                    </div>
-                </td>
+                <td><strong>${w.totalHours.toFixed(1)}</strong></td>
+                <td>${monthLabel}</td>
             </tr>`;
         }).join('');
     }
