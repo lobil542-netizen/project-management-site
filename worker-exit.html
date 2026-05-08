@@ -7,81 +7,44 @@
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-
         body {
             font-family: 'Heebo', sans-serif;
             background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            color: #f1f5f9;
-            min-height: 100vh;
-            direction: rtl;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
+            color: #f1f5f9; min-height: 100vh; direction: rtl;
+            display: flex; align-items: center; justify-content: center; padding: 1rem;
         }
-
         .card {
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 16px;
-            padding: 2rem;
-            width: 100%;
-            max-width: 440px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            background: #1e293b; border: 1px solid #334155; border-radius: 16px;
+            padding: 2rem; width: 100%; max-width: 440px; box-shadow: 0 10px 40px rgba(0,0,0,0.4);
         }
-
-        .header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-
+        .header { text-align: center; margin-bottom: 2rem; }
         .header .icon {
-            width: 70px;
-            height: 70px;
-            background: linear-gradient(135deg, #dc2626, #f97316);
-            border-radius: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1rem;
+            width: 70px; height: 70px; background: linear-gradient(135deg, #dc2626, #f97316);
+            border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;
         }
-
-        .header .icon svg {
-            width: 36px;
-            height: 36px;
-            color: white;
-        }
-
+        .header .icon svg { width: 36px; height: 36px; color: white; }
         .header h1 { font-size: 1.5rem; font-weight: 800; }
         .header p { color: #94a3b8; font-size: 0.9rem; margin-top: 0.3rem; }
-
         .form-group { margin-bottom: 1.2rem; }
         .form-group label { display: block; margin-bottom: 0.4rem; font-weight: 600; color: #94a3b8; font-size: 0.9rem; }
         .form-group label .req { color: #ef4444; }
-
         .form-group input, .form-group select, .form-group textarea {
             width: 100%; padding: 0.85rem 1rem; background: #334155;
             border: 1px solid #475569; border-radius: 10px; color: #f1f5f9;
-            font-family: 'Heebo', sans-serif; font-size: 1rem; transition: border-color 0.2s;
-            resize: vertical;
+            font-family: 'Heebo', sans-serif; font-size: 1rem; transition: border-color 0.2s; resize: vertical;
         }
-
         .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
             outline: none; border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
         }
-
         .btn {
             display: block; width: 100%; padding: 1rem; border: none; border-radius: 12px;
             font-family: 'Heebo', sans-serif; font-weight: 700; font-size: 1.1rem;
-            cursor: pointer; transition: all 0.2s; margin-top: 1.5rem;
-            background: #dc2626; color: white;
+            cursor: pointer; transition: all 0.2s; margin-top: 1.5rem; background: #dc2626; color: white;
         }
         .btn:hover { background: #b91c1c; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
         .success { display: none; text-align: center; }
         .success.show { display: block; }
-
         .success-icon {
             width: 80px; height: 80px; background: linear-gradient(135deg, #059669, #10b981);
             border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem;
@@ -89,16 +52,13 @@
         .success-icon svg { width: 40px; height: 40px; color: white; }
         .success h2 { font-size: 1.4rem; margin-bottom: 0.5rem; }
         .success p { color: #94a3b8; margin-bottom: 1rem; }
-
         .summary-box {
             background: #334155; border-radius: 10px; padding: 1.2rem;
             text-align: right; margin: 1.5rem 0; font-size: 0.95rem; line-height: 2;
         }
         .summary-box strong { color: #3b82f6; }
-
         .btn-back { background: #334155; border: 1px solid #475569; color: #f1f5f9; margin-top: 1rem; }
         .btn-back:hover { background: #475569; }
-
         @media (max-width: 480px) { .card { padding: 1.5rem; } .header h1 { font-size: 1.3rem; } }
     </style>
 </head>
@@ -116,13 +76,11 @@
                 <h1>יציאת עובד</h1>
                 <p>מלא את הפרטים שלך לרישום יציאה</p>
             </div>
-
             <form id="exitForm" onsubmit="submitExit(event)">
                 <div class="form-group">
                     <label>שם מלא <span class="req">*</span></label>
                     <input type="text" id="fullName" required placeholder="שם פרטי ומשפחה" autocomplete="name">
                 </div>
-
                 <div class="form-group">
                     <label>תפקיד <span class="req">*</span></label>
                     <select id="role" required>
@@ -143,21 +101,17 @@
                         <option value="משאבות בטון">משאבות בטון</option>
                     </select>
                 </div>
-
                 <div class="form-group">
                     <label>מספר עובד <span class="req">*</span></label>
                     <input type="text" id="workerId" required placeholder="מספר עובד / ת.ז." pattern="[0-9]{3,9}" title="הכנס 3-9 ספרות" inputmode="numeric">
                 </div>
-
                 <div class="form-group">
                     <label>פירוט מה בוצע <span class="req">*</span></label>
                     <textarea id="workDone" required rows="4" placeholder="תאר את העבודה שבוצעה היום..."></textarea>
                 </div>
-
                 <button type="submit" class="btn" id="submitBtn">רישום יציאה</button>
             </form>
         </div>
-
         <div id="successView" class="success">
             <div class="success-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -172,14 +126,12 @@
         </div>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-    <script src="firebase-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
     <script>
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        function submitExit(e) {
+        async function submitExit(e) {
             e.preventDefault();
             const btn = document.getElementById('submitBtn');
             btn.disabled = true;
@@ -191,33 +143,31 @@
             const workDone = document.getElementById('workDone').value.trim();
             const now = new Date();
 
-            const entry = {
+            const { error } = await supabase.from('attendance').insert({
                 type: 'checkout',
-                fullName,
-                role,
-                workerId,
-                workDone,
-                time: now.toISOString(),
-                timeDisplay: now.toLocaleString('he-IL'),
+                full_name: fullName,
+                role: role,
+                worker_id: workerId,
+                work_done: workDone,
+                time_display: now.toLocaleString('he-IL'),
                 date: now.toLocaleDateString('he-IL')
-            };
+            });
 
-            db.ref('attendance').push(entry)
-                .then(() => {
-                    document.getElementById('formView').style.display = 'none';
-                    document.getElementById('successView').classList.add('show');
-                    document.getElementById('summary').innerHTML =
-                        `<strong>שם:</strong> ${fullName}<br>` +
-                        `<strong>תפקיד:</strong> ${role}<br>` +
-                        `<strong>מס' עובד:</strong> ${workerId}<br>` +
-                        `<strong>מה בוצע:</strong> ${workDone}<br>` +
-                        `<strong>זמן יציאה:</strong> ${entry.timeDisplay}`;
-                })
-                .catch(err => {
-                    alert('שגיאה בשליחה: ' + err.message);
-                    btn.disabled = false;
-                    btn.textContent = 'רישום יציאה';
-                });
+            if (error) {
+                alert('שגיאה בשליחה: ' + error.message);
+                btn.disabled = false;
+                btn.textContent = 'רישום יציאה';
+                return;
+            }
+
+            document.getElementById('formView').style.display = 'none';
+            document.getElementById('successView').classList.add('show');
+            document.getElementById('summary').innerHTML =
+                `<strong>שם:</strong> ${fullName}<br>` +
+                `<strong>תפקיד:</strong> ${role}<br>` +
+                `<strong>מס' עובד:</strong> ${workerId}<br>` +
+                `<strong>מה בוצע:</strong> ${workDone}<br>` +
+                `<strong>זמן יציאה:</strong> ${now.toLocaleString('he-IL')}`;
         }
 
         function resetForm() {

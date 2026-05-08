@@ -1,0 +1,22 @@
+[debug] [2026-05-08T17:11:59.345Z] ----------------------------------------------------------------------
+[debug] [2026-05-08T17:11:59.350Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Mirtec\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js projects:addfirebase mirtec-proj-mgmt
+[debug] [2026-05-08T17:11:59.351Z] CLI Version:   15.17.0
+[debug] [2026-05-08T17:11:59.352Z] Platform:      win32
+[debug] [2026-05-08T17:11:59.352Z] Node Version:  v24.14.1
+[debug] [2026-05-08T17:11:59.352Z] Time:          Fri May 08 2026 20:11:59 GMT+0300 (שעון ישראל (קיץ))
+[debug] [2026-05-08T17:11:59.353Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-08T17:11:59.365Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-08T17:11:59.365Z] > authorizing via signed-in user (lobil542@gmail.com)
+[debug] [2026-05-08T17:11:59.370Z] Checked if tokens are valid: true, expires at: 1778263760712
+[debug] [2026-05-08T17:11:59.370Z] Checked if tokens are valid: true, expires at: 1778263760712
+[debug] [2026-05-08T17:11:59.372Z] >>> [apiv2][query] POST https://firebase.googleapis.com/v1beta1/projects/mirtec-proj-mgmt:addFirebase [none]
+[debug] [2026-05-08T17:12:00.999Z] <<< [apiv2][status] POST https://firebase.googleapis.com/v1beta1/projects/mirtec-proj-mgmt:addFirebase 403
+[debug] [2026-05-08T17:12:00.999Z] <<< [apiv2][body] POST https://firebase.googleapis.com/v1beta1/projects/mirtec-proj-mgmt:addFirebase {"error":{"code":403,"message":"The caller does not have permission","status":"PERMISSION_DENIED"}}
+[debug] [2026-05-08T17:12:01.000Z] Request to https://firebase.googleapis.com/v1beta1/projects/mirtec-proj-mgmt:addFirebase had HTTP Error: 403, The caller does not have permission
+[debug] [2026-05-08T17:12:01.217Z] FirebaseError: Request to https://firebase.googleapis.com/v1beta1/projects/mirtec-proj-mgmt:addFirebase had HTTP Error: 403, The caller does not have permission
+    at responseToError (C:\Users\Mirtec\AppData\Roaming\npm\node_modules\firebase-tools\lib\responseToError.js:53:12)
+    at RetryOperation._fn (C:\Users\Mirtec\AppData\Roaming\npm\node_modules\firebase-tools\lib\apiv2.js:333:77)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[error] 
+[error] Error: Failed to add Firebase to Google Cloud Platform project. See firebase-debug.log for more info.

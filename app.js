@@ -69,8 +69,8 @@ const DEFAULT_DATA = {
 
 // ========== אתחול מערכת ==========
 let data;
-let firebaseDb;
-let firebaseAttendance = []; // נתונים מ-Firebase
+let supabaseClient;
+let supabaseAttendance = [];
 
 function initData() {
     const saved = localStorage.getItem('projectManagementData');
@@ -85,42 +85,38 @@ function initData() {
         saveData();
     }
 
-    // אתחול Firebase והאזנה לנתונים בזמן אמת
-    initFirebase();
+    initSupabase();
 }
 
-function initFirebase() {
+async function initSupabase() {
     try {
-        if (typeof firebase !== 'undefined' && firebaseConfig && firebaseConfig.apiKey !== 'PASTE_HERE') {
-            firebase.initializeApp(firebaseConfig);
-            firebaseDb = firebase.database();
-
-            // האזנה לנתונים בזמן אמת
-            firebaseDb.ref('attendance').on('value', (snapshot) => {
-                firebaseAttendance = [];
-                const data_fb = snapshot.val();
-                if (data_fb) {
-                    Object.keys(data_fb).forEach(key => {
-                        firebaseAttendance.push({ id: key, ...data_fb[key] });
-                    });
-                }
-                // Sort by time
-                firebaseAttendance.sort((a, b) => new Date(b.time) - new Date(a.time));
-                renderFirebaseAttendance();
-            });
+        if (typeof SUPABASE_URL !== 'undefined' && typeof SUPABASE_KEY !== 'undefined') {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            await loadAttendance();
+            // רענון אוטומטי כל 30 שניות
+            setInterval(loadAttendance, 30000);
         }
     } catch (e) {
-        console.log('Firebase not configured yet:', e.message);
+        console.log('Supabase not configured:', e.message);
     }
 }
 
-function renderFirebaseAttendance() {
-    // Update overview if visible
-    if (document.getElementById('tab-overview')?.classList.contains('active')) {
-        renderOverview();
-    }
-    if (document.getElementById('tab-logs')?.classList.contains('active')) {
-        renderLogs();
+async function loadAttendance() {
+    if (!supabaseClient) return;
+    const { data: records, error } = await supabaseClient
+        .from('attendance')
+        .select('*')
+        .order('time', { ascending: false })
+        .limit(200);
+
+    if (!error && records) {
+        supabaseAttendance = records;
+        if (document.getElementById('tab-overview')?.classList.contains('active')) {
+            renderOverview();
+        }
+        if (document.getElementById('tab-logs')?.classList.contains('active')) {
+            renderLogs();
+        }
     }
 }
 
@@ -568,14 +564,14 @@ function renderOverview() {
         };
     });
 
-    const recentFirebaseLogs = firebaseAttendance.slice(0, 20).map(entry => ({
-        name: entry.fullName,
+    const recentFirebaseLogs = supabaseAttendance.slice(0, 20).map(entry => ({
+        name: entry.full_name,
         type: entry.role,
         action: entry.type === 'checkout' ? 'יציאה' : 'כניסה',
         dotClass: entry.type === 'checkout' ? 'out' : 'in',
         time: new Date(entry.time),
         date: entry.date,
-        workDescription: entry.workDone || '',
+        workDescription: entry.work_done || '',
         source: 'firebase'
     }));
 
@@ -740,17 +736,17 @@ function renderLogs() {
     }
 
     // Add Firebase attendance to logs
-    const firebaseLogs = firebaseAttendance.map(entry => ({
+    const firebaseLogs = supabaseAttendance.map(entry => ({
         date: entry.date,
-        workerName: entry.fullName,
+        workerName: entry.full_name,
         workerType: entry.role,
         projectName: '-',
         checkinTime: entry.type === 'checkin' ? entry.time : null,
         checkoutTime: entry.type === 'checkout' ? entry.time : null,
         totalHours: null,
-        workDescription: entry.workDone || '',
+        workDescription: entry.work_done || '',
         notes: '',
-        workerId: entry.workerId,
+        workerId: entry.worker_id,
         isFirebase: true,
         type: entry.type
     }));
