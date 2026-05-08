@@ -747,15 +747,37 @@ function renderHours() {
     const checkins = monthEntries.filter(e => e.type === 'checkin');
     const checkouts = monthEntries.filter(e => e.type === 'checkout');
 
-    // Calculate hours per worker
+    // Calculate monthly hours per worker
     const workerHours = {};
 
     checkins.forEach(ci => {
         const key = ci.worker_id;
         if (!workerHours[key]) {
-            workerHours[key] = { name: ci.full_name, role: ci.role, workerId: ci.worker_id, totalHours: 0 };
+            workerHours[key] = { name: ci.full_name, role: ci.role, workerId: ci.worker_id, monthHours: 0, totalHours: 0 };
         }
         const matchingCheckout = checkouts.find(co =>
+            co.worker_id === ci.worker_id && co.date === ci.date
+        );
+        if (matchingCheckout) {
+            const ciTime = new Date(ci.time);
+            const coTime = new Date(matchingCheckout.time);
+            const hours = (coTime - ciTime) / (1000 * 60 * 60);
+            if (hours > 0 && hours < 24) {
+                workerHours[key].monthHours += hours;
+            }
+        }
+    });
+
+    // Calculate total hours across all months
+    const allCheckins = supabaseAttendance.filter(e => e.type === 'checkin');
+    const allCheckouts = supabaseAttendance.filter(e => e.type === 'checkout');
+
+    allCheckins.forEach(ci => {
+        const key = ci.worker_id;
+        if (!workerHours[key]) {
+            workerHours[key] = { name: ci.full_name, role: ci.role, workerId: ci.worker_id, monthHours: 0, totalHours: 0 };
+        }
+        const matchingCheckout = allCheckouts.find(co =>
             co.worker_id === ci.worker_id && co.date === ci.date
         );
         if (matchingCheckout) {
@@ -775,7 +797,7 @@ function renderHours() {
     const monthLabel = new Date(selY, selM - 1).toLocaleDateString('he-IL', { year: 'numeric', month: 'long' });
 
     if (workers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="empty-state">אין נתוני שעות לחודש זה</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="empty-state">אין נתוני שעות לחודש זה</td></tr>`;
     } else {
         tbody.innerHTML = workers.map(w => {
             return `
@@ -783,6 +805,7 @@ function renderHours() {
                 <td><strong>${w.workerId}</strong></td>
                 <td>${w.name}</td>
                 <td><span class="badge badge-type">${w.role}</span></td>
+                <td><strong>${w.monthHours.toFixed(1)}</strong></td>
                 <td><strong>${w.totalHours.toFixed(1)}</strong></td>
             </tr>`;
         }).join('');
