@@ -162,6 +162,7 @@ function adminLoginSubmit(e) {
     if (user === data.adminUser && pass === data.adminPass) {
         showScreen('adminDashboard');
         showToast('ברוך הבא, מנהל!', 'success');
+        setTimeout(() => autoDailyExport(), 3000);
     } else {
         showToast('שם משתמש או סיסמה שגויים', 'error');
     }
@@ -1193,44 +1194,107 @@ async function deleteAttendanceRecord(ids) {
     }
 }
 
-function exportData() {
-    if (data.logs.length === 0 && supabaseAttendance.length === 0) {
-        showToast('אין נתונים לייצוא', 'error');
-        return;
-    }
+async function autoDailyExport() {
+    const today = new Date().toISOString().slice(0, 10);
+    const lastExport = localStorage.getItem('lastDailyExport');
+    if (lastExport === today) return;
 
-    // BOM for UTF-8 Excel support
+    await loadAttendance();
+    if (supabaseAttendance.length === 0) return;
+
+    const todayHe = new Date().toLocaleDateString('he-IL');
+
+    // Pair checkins with checkouts
+    const checkins = supabaseAttendance.filter(e => e.type === 'checkin');
+    const checkouts = supabaseAttendance.filter(e => e.type === 'checkout');
+
     let csv = '\uFEFF';
-    csv += 'תאריך,עובד,תפקיד,סוג,שעה,מה בוצע\n';
+    csv += 'תאריך,מס עובד,שם עובד,תפקיד,שעת כניסה,שעת יציאה,שעות בפועל,מה בוצע\n';
 
-    // Export Supabase attendance data
-    supabaseAttendance.forEach(entry => {
-        const type = entry.type === 'checkin' ? 'כניסה' : 'יציאה';
-        const name = (entry.full_name || '-').replace(/"/g, '""');
-        const role = (entry.role || '-').replace(/"/g, '""');
-        const workDone = (entry.work_done || '-').replace(/"/g, '""');
-        const timeDisplay = entry.time_display || '';
-        const date = entry.date || '';
+    checkins.forEach(ci => {
+        const co = checkouts.find(c => c.worker_id === ci.worker_id && c.date === ci.date);
+        const name = (ci.full_name || '-').replace(/"/g, '""');
+        const role = (ci.role || '-').replace(/"/g, '""');
+        const ciTime = ci.time ? new Date(ci.time) : null;
+        const coTime = co && co.time ? new Date(co.time) : null;
+        const ciDisplay = ciTime ? ciTime.toLocaleTimeString('he-IL', {hour: '2-digit', minute: '2-digit'}) : '-';
+        const coDisplay = coTime ? coTime.toLocaleTimeString('he-IL', {hour: '2-digit', minute: '2-digit'}) : '-';
+        const hours = (ciTime && coTime) ? ((coTime - ciTime) / (1000 * 60 * 60)) : 0;
+        const hoursDisplay = hours > 0 && hours < 24 ? hours.toFixed(2) : '-';
+        const workDone = (co && co.work_done || '-').replace(/"/g, '""');
 
-        csv += `${date},"${name}","${role}","${type}",${timeDisplay},"${workDone}"\n`;
+        csv += `${ci.date || '-'},${ci.worker_id},"${name}","${role}",${ciDisplay},${coDisplay},${hoursDisplay},"${workDone}"\n`;
     });
 
-    // Also export local logs
-    data.logs.forEach(log => {
-        const checkin = formatTime(new Date(log.checkinTime));
-        const checkout = log.checkoutTime ? formatTime(new Date(log.checkoutTime)) : '';
-        const desc = (log.workDescription || '-').replace(/"/g, '""');
+    // Add checkouts without matching checkin
+    checkouts.forEach(co => {
+        const hasCheckin = checkins.some(ci => ci.worker_id === co.worker_id && ci.date === co.date);
+        if (!hasCheckin) {
+            const name = (co.full_name || '-').replace(/"/g, '""');
+            const role = (co.role || '-').replace(/"/g, '""');
+            const coTime = co.time ? new Date(co.time) : null;
+            const coDisplay = coTime ? coTime.toLocaleTimeString('he-IL', {hour: '2-digit', minute: '2-digit'}) : '-';
+            const workDone = (co.work_done || '-').replace(/"/g, '""');
 
-        csv += `${log.date},"${log.workerName}","${log.workerType}","כניסה",${checkin},""\n`;
-        if (log.checkoutTime) {
-            csv += `${log.date},"${log.workerName}","${log.workerType}","יציאה",${checkout},"${desc}"\n`;
+            csv += `${co.date || '-'},${co.worker_id},"${name}","${role}",-,${coDisplay},-,"${workDone}"\n`;
         }
     });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `attendance_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `דוח_יומי_${today}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+
+    localStorage.setItem('lastDailyExport', today);
+    showToast('דוח יומי הורד אוטומטית', 'success');
+}
+
+function exportData() {
+    if (supabaseAttendance.length === 0) {
+        showToast('אין נתונים לייצוא', 'error');
+        return;
+    }
+
+    const checkins = supabaseAttendance.filter(e => e.type === 'checkin');
+    const checkouts = supabaseAttendance.filter(e => e.type === 'checkout');
+
+    let csv = '\uFEFF';
+    csv += 'תאריך,מס עובד,שם עובד,תפקיד,שעת כניסה,שעת יציאה,שעות בפועל,מה בוצע\n';
+
+    checkins.forEach(ci => {
+        const co = checkouts.find(c => c.worker_id === ci.worker_id && c.date === ci.date);
+        const name = (ci.full_name || '-').replace(/"/g, '""');
+        const role = (ci.role || '-').replace(/"/g, '""');
+        const ciTime = ci.time ? new Date(ci.time) : null;
+        const coTime = co && co.time ? new Date(co.time) : null;
+        const ciDisplay = ciTime ? ciTime.toLocaleTimeString('he-IL', {hour: '2-digit', minute: '2-digit'}) : '-';
+        const coDisplay = coTime ? coTime.toLocaleTimeString('he-IL', {hour: '2-digit', minute: '2-digit'}) : '-';
+        const hours = (ciTime && coTime) ? ((coTime - ciTime) / (1000 * 60 * 60)) : 0;
+        const hoursDisplay = hours > 0 && hours < 24 ? hours.toFixed(2) : '-';
+        const workDone = (co && co.work_done || '-').replace(/"/g, '""');
+
+        csv += `${ci.date || '-'},${ci.worker_id},"${name}","${role}",${ciDisplay},${coDisplay},${hoursDisplay},"${workDone}"\n`;
+    });
+
+    checkouts.forEach(co => {
+        const hasCheckin = checkins.some(ci => ci.worker_id === co.worker_id && ci.date === co.date);
+        if (!hasCheckin) {
+            const name = (co.full_name || '-').replace(/"/g, '""');
+            const role = (co.role || '-').replace(/"/g, '""');
+            const coTime = co.time ? new Date(co.time) : null;
+            const coDisplay = coTime ? coTime.toLocaleTimeString('he-IL', {hour: '2-digit', minute: '2-digit'}) : '-';
+            const workDone = (co.work_done || '-').replace(/"/g, '""');
+
+            csv += `${co.date || '-'},${co.worker_id},"${name}","${role}",-,${coDisplay},-,"${workDone}"\n`;
+        }
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `דוח_נוכחות_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
 
