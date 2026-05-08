@@ -927,25 +927,29 @@ function updateLogFilters() {
 }
 
 // ========== רינדור פרויקטים ==========
-function getStageHours(projectId) {
-    const projectLogs = data.logs.filter(l => l.projectId === projectId && l.totalHours && l.selectedStages);
-    const stageHours = {};
+function getRoleHours() {
+    const roleHours = {};
+    data.workerTypes.forEach(role => { roleHours[role] = 0; });
 
-    data.workStages.forEach(stage => { stageHours[stage] = 0; });
+    const checkins = supabaseAttendance.filter(e => e.type === 'checkin');
+    const checkouts = supabaseAttendance.filter(e => e.type === 'checkout');
 
-    projectLogs.forEach(log => {
-        if (log.selectedStages && log.selectedStages.length > 0) {
-            // Divide hours equally among selected stages
-            const hoursPerStage = log.totalHours / log.selectedStages.length;
-            log.selectedStages.forEach(stage => {
-                if (stageHours[stage] !== undefined) {
-                    stageHours[stage] += hoursPerStage;
+    checkins.forEach(ci => {
+        const co = checkouts.find(c => c.worker_id === ci.worker_id && c.date === ci.date);
+        if (co) {
+            const hours = (new Date(co.time) - new Date(ci.time)) / (1000 * 60 * 60);
+            if (hours > 0 && hours < 24) {
+                const role = ci.role;
+                if (roleHours[role] !== undefined) {
+                    roleHours[role] += hours;
+                } else {
+                    roleHours[role] = hours;
                 }
-            });
+            }
         }
     });
 
-    return stageHours;
+    return roleHours;
 }
 
 function renderProjects() {
@@ -957,15 +961,19 @@ function renderProjects() {
         return;
     }
 
-    container.innerHTML = data.projects.map(project => {
-        const projectWorkers = data.workers.filter(w => w.projectId === project.id);
-        const projectLogs = data.logs.filter(l => l.projectId === project.id);
-        const totalHours = projectLogs.reduce((sum, l) => sum + (l.totalHours || 0), 0);
-        const activeNow = data.logs.filter(l => l.projectId === project.id && !l.checkoutTime).length;
-        const stageHours = getStageHours(project.id);
+    const roleHours = getRoleHours();
+    const totalAllHours = Object.values(roleHours).reduce((s, h) => s + h, 0);
+    const totalWorkers = new Set(supabaseAttendance.map(e => e.worker_id)).size;
+    const activeNow = supabaseAttendance.filter(e => {
+        if (e.type !== 'checkin') return false;
+        const today = new Date().toLocaleDateString('he-IL');
+        if (e.date !== today) return false;
+        return !supabaseAttendance.some(co => co.type === 'checkout' && co.worker_id === e.worker_id && co.date === today);
+    }).length;
 
-        const stagesHtml = data.workStages.map(stage => {
-            const hours = stageHours[stage] || 0;
+    container.innerHTML = data.projects.map(project => {
+        const rolesHtml = data.workerTypes.map(role => {
+            const hours = roleHours[role] || 0;
             const percent = Math.min((hours / budget) * 100, 100);
             const isOver = hours > budget;
             const barColor = isOver ? 'var(--danger)' : 'var(--primary)';
@@ -973,7 +981,7 @@ function renderProjects() {
 
             return `
                 <div class="stage-row">
-                    <div class="stage-name">${stage}</div>
+                    <div class="stage-name">${role}</div>
                     <div class="stage-bar-container">
                         <div class="stage-bar" style="width: ${percent}%; background: ${barColor};"></div>
                     </div>
@@ -1003,7 +1011,7 @@ function renderProjects() {
                 </div>
                 <div class="project-stats">
                     <div class="project-stat">
-                        <span class="project-stat-num">${projectWorkers.length}</span>
+                        <span class="project-stat-num">${totalWorkers}</span>
                         <span class="project-stat-label">עובדים</span>
                     </div>
                     <div class="project-stat">
@@ -1011,18 +1019,18 @@ function renderProjects() {
                         <span class="project-stat-label">נוכחים כרגע</span>
                     </div>
                     <div class="project-stat">
-                        <span class="project-stat-num">${totalHours.toFixed(1)}</span>
+                        <span class="project-stat-num">${totalAllHours.toFixed(1)}</span>
                         <span class="project-stat-label">סה"כ שעות</span>
                     </div>
                     <div class="project-stat">
-                        <span class="project-stat-num">${projectLogs.length}</span>
+                        <span class="project-stat-num">${supabaseAttendance.length}</span>
                         <span class="project-stat-label">רשומות</span>
                     </div>
                 </div>
                 <div class="stages-budget-section">
-                    <h4 class="stages-budget-title">תקציב שעות לפי תת-קטגוריה (${budget} שעות לכל אחד)</h4>
+                    <h4 class="stages-budget-title">שעות בפועל לפי מקצוע (${budget} שעות לכל מקצוע)</h4>
                     <div class="stages-budget-list">
-                        ${stagesHtml}
+                        ${rolesHtml}
                     </div>
                 </div>
             </div>
