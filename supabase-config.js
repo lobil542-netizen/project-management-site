@@ -48,3 +48,31 @@ async function supabaseSelect(table) {
     }
     return await res.json();
 }
+
+async function supabaseSelectAll(table) {
+    const res = await fetch(`${SUPABASE_REST}/${table}?select=*`, {
+        headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY
+        }
+    });
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'שגיאה בקריאה');
+    }
+    return await res.json();
+}
+
+async function supabaseSelectWhere(table, column, value) {
+    const res = await fetch(`${SUPABASE_REST}/${table}?${column}=eq.${value}&select=*`, {
+        headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY
+        }
+    });
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'שגיאה בקריאה');
+    }
+    return await res.json();
+}

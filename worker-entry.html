@@ -79,34 +79,14 @@
             </div>
             <form id="entryForm" onsubmit="submitEntry(event)">
                 <div class="form-group">
-                    <label>שם מלא <span class="req">*</span></label>
-                    <input type="text" id="fullName" required placeholder="שם פרטי ומשפחה" autocomplete="name">
-                </div>
-                <div class="form-group">
-                    <label>תפקיד <span class="req">*</span></label>
-                    <select id="role" required>
-                        <option value="">בחר תפקיד...</option>
-                        <option value="אינסטלטור">אינסטלטור</option>
-                        <option value="חשמלאי">חשמלאי</option>
-                        <option value="מיזוג">מיזוג</option>
-                        <option value="מודד">מודד</option>
-                        <option value="מנהל עבודה">מנהל עבודה</option>
-                        <option value="מנהל פרויקט">מנהל פרויקט</option>
-                        <option value="מהנדס">מהנדס</option>
-                        <option value="טפסן">טפסן</option>
-                        <option value="ברזלן">ברזלן</option>
-                        <option value="בטונאי">בטונאי</option>
-                        <option value="עובד כללי">עובד כללי</option>
-                        <option value="מפעיל מנוף">מפעיל מנוף</option>
-                        <option value="מפעיל טרקטור">מפעיל טרקטור</option>
-                        <option value="משאבות בטון">משאבות בטון</option>
-                    </select>
-                </div>
-                <div class="form-group">
                     <label>מספר עובד <span class="req">*</span></label>
-                    <input type="text" id="workerId" required placeholder="מספר עובד / ת.ז." pattern="[0-9]{3,9}" title="הכנס 3-9 ספרות" inputmode="numeric">
+                    <input type="text" id="workerId" required placeholder="הכנס מספר עובד" pattern="[0-9]{2,9}" title="הכנס מספר עובד" inputmode="numeric">
+                    <p id="workerInfo" style="color: #10b981; font-size: 0.85rem; margin-top: 0.4rem; display: none;"></p>
+                    <p id="workerError" style="color: #ef4444; font-size: 0.85rem; margin-top: 0.4rem; display: none;"></p>
                 </div>
-                <button type="submit" class="btn" id="submitBtn">רישום כניסה</button>
+                <input type="hidden" id="fullName">
+                <input type="hidden" id="role">
+                <button type="submit" class="btn" id="submitBtn" disabled>הכנס מספר עובד קודם</button>
             </form>
         </div>
         <div id="successView" class="success">
@@ -125,14 +105,67 @@
 
     <script src="supabase-config.js"></script>
     <script>
+        let currentWorker = null;
+        const workerIdInput = document.getElementById('workerId');
+        let lookupTimeout = null;
+
+        workerIdInput.addEventListener('input', function() {
+            clearTimeout(lookupTimeout);
+            const val = this.value.trim();
+            if (val.length >= 2) {
+                lookupTimeout = setTimeout(() => lookupWorker(val), 400);
+            } else {
+                resetWorkerInfo();
+            }
+        });
+
+        async function lookupWorker(number) {
+            const info = document.getElementById('workerInfo');
+            const error = document.getElementById('workerError');
+            const btn = document.getElementById('submitBtn');
+            info.style.display = 'none';
+            error.style.display = 'none';
+
+            try {
+                const results = await supabaseSelectWhere('workers', 'worker_number', number);
+                if (results && results.length > 0) {
+                    currentWorker = results[0];
+                    document.getElementById('fullName').value = currentWorker.full_name;
+                    document.getElementById('role').value = currentWorker.role;
+                    info.textContent = currentWorker.full_name + ' - ' + currentWorker.role;
+                    info.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'רישום כניסה';
+                } else {
+                    resetWorkerInfo();
+                    error.textContent = 'מספר עובד לא נמצא. יש להירשם קודם.';
+                    error.style.display = 'block';
+                }
+            } catch (err) {
+                error.textContent = 'שגיאה בחיפוש: ' + err.message;
+                error.style.display = 'block';
+            }
+        }
+
+        function resetWorkerInfo() {
+            currentWorker = null;
+            document.getElementById('fullName').value = '';
+            document.getElementById('role').value = '';
+            document.getElementById('workerInfo').style.display = 'none';
+            document.getElementById('workerError').style.display = 'none';
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('submitBtn').textContent = 'הכנס מספר עובד קודם';
+        }
+
         async function submitEntry(e) {
             e.preventDefault();
+            if (!currentWorker) return;
             const btn = document.getElementById('submitBtn');
             btn.disabled = true;
             btn.textContent = 'שולח...';
 
-            const fullName = document.getElementById('fullName').value.trim();
-            const role = document.getElementById('role').value;
+            const fullName = currentWorker.full_name;
+            const role = currentWorker.role;
             const workerId = document.getElementById('workerId').value.trim();
             const now = new Date();
 
@@ -164,8 +197,8 @@
             document.getElementById('entryForm').reset();
             document.getElementById('formView').style.display = 'block';
             document.getElementById('successView').classList.remove('show');
-            document.getElementById('submitBtn').disabled = false;
-            document.getElementById('submitBtn').textContent = 'רישום כניסה';
+            currentWorker = null;
+            resetWorkerInfo();
         }
     </script>
 </body>
