@@ -52,148 +52,58 @@
             color: white;
         }
 
-        .header h1 {
-            font-size: 1.5rem;
-            font-weight: 800;
-        }
+        .header h1 { font-size: 1.5rem; font-weight: 800; }
+        .header p { color: #94a3b8; font-size: 0.9rem; margin-top: 0.3rem; }
 
-        .header p {
-            color: #94a3b8;
-            font-size: 0.9rem;
-            margin-top: 0.3rem;
-        }
+        .form-group { margin-bottom: 1.2rem; }
+        .form-group label { display: block; margin-bottom: 0.4rem; font-weight: 600; color: #94a3b8; font-size: 0.9rem; }
+        .form-group label .req { color: #ef4444; }
 
-        .form-group {
-            margin-bottom: 1.2rem;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.4rem;
-            font-weight: 600;
-            color: #94a3b8;
-            font-size: 0.9rem;
-        }
-
-        .form-group label .req {
-            color: #ef4444;
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 0.85rem 1rem;
-            background: #334155;
-            border: 1px solid #475569;
-            border-radius: 10px;
-            color: #f1f5f9;
-            font-family: 'Heebo', sans-serif;
-            font-size: 1rem;
-            transition: border-color 0.2s;
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; padding: 0.85rem 1rem; background: #334155;
+            border: 1px solid #475569; border-radius: 10px; color: #f1f5f9;
+            font-family: 'Heebo', sans-serif; font-size: 1rem; transition: border-color 0.2s;
             resize: vertical;
         }
 
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #dc2626;
-            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none; border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
         }
 
         .btn {
-            display: block;
-            width: 100%;
-            padding: 1rem;
-            border: none;
-            border-radius: 12px;
-            font-family: 'Heebo', sans-serif;
-            font-weight: 700;
-            font-size: 1.1rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-top: 1.5rem;
-            background: #dc2626;
-            color: white;
+            display: block; width: 100%; padding: 1rem; border: none; border-radius: 12px;
+            font-family: 'Heebo', sans-serif; font-weight: 700; font-size: 1.1rem;
+            cursor: pointer; transition: all 0.2s; margin-top: 1.5rem;
+            background: #dc2626; color: white;
         }
+        .btn:hover { background: #b91c1c; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-        .btn:hover {
-            background: #b91c1c;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
-        }
-
-        .success {
-            display: none;
-            text-align: center;
-        }
-
-        .success.show {
-            display: block;
-        }
+        .success { display: none; text-align: center; }
+        .success.show { display: block; }
 
         .success-icon {
-            width: 80px;
-            height: 80px;
-            background: linear-gradient(135deg, #059669, #10b981);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1.5rem;
+            width: 80px; height: 80px; background: linear-gradient(135deg, #059669, #10b981);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem;
         }
-
-        .success-icon svg {
-            width: 40px;
-            height: 40px;
-            color: white;
-        }
-
-        .success h2 {
-            font-size: 1.4rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .success p {
-            color: #94a3b8;
-            margin-bottom: 1rem;
-        }
+        .success-icon svg { width: 40px; height: 40px; color: white; }
+        .success h2 { font-size: 1.4rem; margin-bottom: 0.5rem; }
+        .success p { color: #94a3b8; margin-bottom: 1rem; }
 
         .summary-box {
-            background: #334155;
-            border-radius: 10px;
-            padding: 1.2rem;
-            text-align: right;
-            margin: 1.5rem 0;
-            font-size: 0.95rem;
-            line-height: 2;
+            background: #334155; border-radius: 10px; padding: 1.2rem;
+            text-align: right; margin: 1.5rem 0; font-size: 0.95rem; line-height: 2;
         }
+        .summary-box strong { color: #3b82f6; }
 
-        .summary-box strong {
-            color: #3b82f6;
-        }
+        .btn-back { background: #334155; border: 1px solid #475569; color: #f1f5f9; margin-top: 1rem; }
+        .btn-back:hover { background: #475569; }
 
-        .btn-back {
-            background: #334155;
-            border: 1px solid #475569;
-            color: #f1f5f9;
-            margin-top: 1rem;
-        }
-
-        .btn-back:hover {
-            background: #475569;
-        }
-
-        @media (max-width: 480px) {
-            .card { padding: 1.5rem; }
-            .header h1 { font-size: 1.3rem; }
-        }
+        @media (max-width: 480px) { .card { padding: 1.5rem; } .header h1 { font-size: 1.3rem; } }
     </style>
 </head>
 <body>
     <div class="card">
-        <!-- Form -->
         <div id="formView">
             <div class="header">
                 <div class="icon">
@@ -244,11 +154,10 @@
                     <textarea id="workDone" required rows="4" placeholder="תאר את העבודה שבוצעה היום..."></textarea>
                 </div>
 
-                <button type="submit" class="btn">רישום יציאה</button>
+                <button type="submit" class="btn" id="submitBtn">רישום יציאה</button>
             </form>
         </div>
 
-        <!-- Success -->
         <div id="successView" class="success">
             <div class="success-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -257,47 +166,66 @@
                 </svg>
             </div>
             <h2>היציאה נרשמה בהצלחה!</h2>
-            <p>הפרטים נשלחו למנהל</p>
+            <p>הנתונים נשלחו למערכת</p>
             <div id="summary" class="summary-box"></div>
             <button class="btn btn-back" onclick="resetForm()">חזור לטופס</button>
         </div>
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <script src="firebase-config.js"></script>
     <script>
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
         function submitExit(e) {
             e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.textContent = 'שולח...';
 
             const fullName = document.getElementById('fullName').value.trim();
             const role = document.getElementById('role').value;
             const workerId = document.getElementById('workerId').value.trim();
             const workDone = document.getElementById('workDone').value.trim();
+            const now = new Date();
 
             const entry = {
+                type: 'checkout',
                 fullName,
                 role,
                 workerId,
                 workDone,
-                submittedAt: new Date().toLocaleString('he-IL')
+                time: now.toISOString(),
+                timeDisplay: now.toLocaleString('he-IL'),
+                date: now.toLocaleDateString('he-IL')
             };
 
-            const exits = JSON.parse(localStorage.getItem('workerExits') || '[]');
-            exits.push(entry);
-            localStorage.setItem('workerExits', JSON.stringify(exits));
-
-            document.getElementById('formView').style.display = 'none';
-            document.getElementById('successView').classList.add('show');
-            document.getElementById('summary').innerHTML =
-                `<strong>שם:</strong> ${fullName}<br>` +
-                `<strong>תפקיד:</strong> ${role}<br>` +
-                `<strong>מס' עובד:</strong> ${workerId}<br>` +
-                `<strong>מה בוצע:</strong> ${workDone}<br>` +
-                `<strong>זמן יציאה:</strong> ${entry.submittedAt}`;
+            db.ref('attendance').push(entry)
+                .then(() => {
+                    document.getElementById('formView').style.display = 'none';
+                    document.getElementById('successView').classList.add('show');
+                    document.getElementById('summary').innerHTML =
+                        `<strong>שם:</strong> ${fullName}<br>` +
+                        `<strong>תפקיד:</strong> ${role}<br>` +
+                        `<strong>מס' עובד:</strong> ${workerId}<br>` +
+                        `<strong>מה בוצע:</strong> ${workDone}<br>` +
+                        `<strong>זמן יציאה:</strong> ${entry.timeDisplay}`;
+                })
+                .catch(err => {
+                    alert('שגיאה בשליחה: ' + err.message);
+                    btn.disabled = false;
+                    btn.textContent = 'רישום יציאה';
+                });
         }
 
         function resetForm() {
             document.getElementById('exitForm').reset();
             document.getElementById('formView').style.display = 'block';
             document.getElementById('successView').classList.remove('show');
+            document.getElementById('submitBtn').disabled = false;
+            document.getElementById('submitBtn').textContent = 'רישום יציאה';
         }
     </script>
 </body>

@@ -69,12 +69,13 @@ const DEFAULT_DATA = {
 
 // ========== אתחול מערכת ==========
 let data;
+let firebaseDb;
+let firebaseAttendance = []; // נתונים מ-Firebase
 
 function initData() {
     const saved = localStorage.getItem('projectManagementData');
     if (saved) {
         data = JSON.parse(saved);
-        // Add workStages if missing (existing data upgrade)
         if (!data.workStages) {
             data.workStages = DEFAULT_DATA.workStages;
             saveData();
@@ -82,6 +83,44 @@ function initData() {
     } else {
         data = JSON.parse(JSON.stringify(DEFAULT_DATA));
         saveData();
+    }
+
+    // אתחול Firebase והאזנה לנתונים בזמן אמת
+    initFirebase();
+}
+
+function initFirebase() {
+    try {
+        if (typeof firebase !== 'undefined' && firebaseConfig && firebaseConfig.apiKey !== 'PASTE_HERE') {
+            firebase.initializeApp(firebaseConfig);
+            firebaseDb = firebase.database();
+
+            // האזנה לנתונים בזמן אמת
+            firebaseDb.ref('attendance').on('value', (snapshot) => {
+                firebaseAttendance = [];
+                const data_fb = snapshot.val();
+                if (data_fb) {
+                    Object.keys(data_fb).forEach(key => {
+                        firebaseAttendance.push({ id: key, ...data_fb[key] });
+                    });
+                }
+                // Sort by time
+                firebaseAttendance.sort((a, b) => new Date(b.time) - new Date(a.time));
+                renderFirebaseAttendance();
+            });
+        }
+    } catch (e) {
+        console.log('Firebase not configured yet:', e.message);
+    }
+}
+
+function renderFirebaseAttendance() {
+    // Update overview if visible
+    if (document.getElementById('tab-overview')?.classList.contains('active')) {
+        renderOverview();
+    }
+    if (document.getElementById('tab-logs')?.classList.contains('active')) {
+        renderLogs();
     }
 }
 
@@ -513,29 +552,52 @@ function renderOverview() {
         }).join('');
     }
 
-    // Recent activity
-    const recentLogs = [...data.logs].reverse().slice(0, 10);
+    // Recent activity - combine local logs + Firebase attendance
+    const recentLocalLogs = [...data.logs].reverse().slice(0, 10).map(log => {
+        const isCheckout = !!log.checkoutTime;
+        const time = isCheckout ? new Date(log.checkoutTime) : new Date(log.checkinTime);
+        return {
+            name: log.workerName,
+            type: log.workerType,
+            action: isCheckout ? 'יציאה' : 'כניסה',
+            dotClass: isCheckout ? 'out' : 'in',
+            time,
+            date: log.date,
+            workDescription: isCheckout ? log.workDescription : '',
+            source: 'local'
+        };
+    });
+
+    const recentFirebaseLogs = firebaseAttendance.slice(0, 20).map(entry => ({
+        name: entry.fullName,
+        type: entry.role,
+        action: entry.type === 'checkout' ? 'יציאה' : 'כניסה',
+        dotClass: entry.type === 'checkout' ? 'out' : 'in',
+        time: new Date(entry.time),
+        date: entry.date,
+        workDescription: entry.workDone || '',
+        source: 'firebase'
+    }));
+
+    const allActivity = [...recentLocalLogs, ...recentFirebaseLogs]
+        .sort((a, b) => b.time - a.time)
+        .slice(0, 15);
+
     const activityList = document.getElementById('recentActivity');
 
-    if (recentLogs.length === 0) {
+    if (allActivity.length === 0) {
         activityList.innerHTML = '<div class="empty-state">אין פעילות אחרונה</div>';
     } else {
-        activityList.innerHTML = recentLogs.map(log => {
-            const isCheckout = !!log.checkoutTime;
-            const time = isCheckout ? new Date(log.checkoutTime) : new Date(log.checkinTime);
-            const action = isCheckout ? 'יציאה' : 'כניסה';
-            const dotClass = isCheckout ? 'out' : 'in';
-            return `
-                <div class="activity-item">
-                    <div class="activity-dot ${dotClass}"></div>
-                    <div>
-                        <div class="activity-text"><strong>${log.workerName}</strong> - ${action} | ${log.projectName}</div>
-                        <div class="activity-time">${formatTime(time)} | ${log.date}</div>
-                        ${isCheckout && log.workDescription ? `<div class="activity-time">${log.workDescription}</div>` : ''}
-                    </div>
+        activityList.innerHTML = allActivity.map(item => `
+            <div class="activity-item">
+                <div class="activity-dot ${item.dotClass}"></div>
+                <div>
+                    <div class="activity-text"><strong>${item.name}</strong> - ${item.action} | ${item.type}</div>
+                    <div class="activity-time">${formatTime(item.time)} | ${item.date}</div>
+                    ${item.workDescription ? `<div class="activity-time">${item.workDescription}</div>` : ''}
                 </div>
-            `;
-        }).join('');
+            </div>
+        `).join('');
     }
 }
 
@@ -677,18 +739,72 @@ function renderLogs() {
         filteredLogs = filteredLogs.filter(l => l.date === dateStr);
     }
 
+    // Add Firebase attendance to logs
+    const firebaseLogs = firebaseAttendance.map(entry => ({
+        date: entry.date,
+        workerName: entry.fullName,
+        workerType: entry.role,
+        projectName: '-',
+        checkinTime: entry.type === 'checkin' ? entry.time : null,
+        checkoutTime: entry.type === 'checkout' ? entry.time : null,
+        totalHours: null,
+        workDescription: entry.workDone || '',
+        notes: '',
+        workerId: entry.workerId,
+        isFirebase: true,
+        type: entry.type
+    }));
+
+    // Match checkins with checkouts by workerId + date
+    const pairedLogs = [];
+    const checkins = firebaseLogs.filter(l => l.type === 'checkin');
+    const checkouts = firebaseLogs.filter(l => l.type === 'checkout');
+
+    checkins.forEach(ci => {
+        const matchingCheckout = checkouts.find(co =>
+            co.workerId === ci.workerId && co.date === ci.date
+        );
+        if (matchingCheckout) {
+            const ciTime = new Date(ci.checkinTime);
+            const coTime = new Date(matchingCheckout.checkoutTime);
+            const hours = ((coTime - ciTime) / (1000 * 60 * 60));
+            pairedLogs.push({
+                ...ci,
+                checkoutTime: matchingCheckout.checkoutTime,
+                totalHours: hours > 0 ? hours : null,
+                workDescription: matchingCheckout.workDescription
+            });
+        } else {
+            pairedLogs.push(ci);
+        }
+    });
+
+    // Add checkouts without matching checkin
+    checkouts.forEach(co => {
+        const hasMatch = checkins.some(ci => ci.workerId === co.workerId && ci.date === co.date);
+        if (!hasMatch) {
+            pairedLogs.push(co);
+        }
+    });
+
+    const allLogs = [...filteredLogs, ...pairedLogs].sort((a, b) => {
+        const timeA = new Date(a.checkoutTime || a.checkinTime || 0);
+        const timeB = new Date(b.checkoutTime || b.checkinTime || 0);
+        return timeB - timeA;
+    });
+
     const tbody = document.getElementById('logsTableBody');
 
-    if (filteredLogs.length === 0) {
+    if (allLogs.length === 0) {
         tbody.innerHTML = `<tr><td colspan="9" class="empty-state">אין רשומות נוכחות</td></tr>`;
     } else {
-        tbody.innerHTML = filteredLogs.map(log => `
+        tbody.innerHTML = allLogs.map(log => `
             <tr>
                 <td>${log.date}</td>
                 <td><strong>${log.workerName}</strong></td>
                 <td><span class="badge badge-type">${log.workerType}</span></td>
-                <td>${log.projectName}</td>
-                <td>${formatTime(new Date(log.checkinTime))}</td>
+                <td>${log.projectName || '-'}</td>
+                <td>${log.checkinTime ? formatTime(new Date(log.checkinTime)) : '-'}</td>
                 <td>${log.checkoutTime ? formatTime(new Date(log.checkoutTime)) : '<span class="badge badge-active">עדיין באתר</span>'}</td>
                 <td>${log.totalHours ? log.totalHours.toFixed(2) : '-'}</td>
                 <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${log.workDescription || ''}">${log.workDescription || '-'}</td>
