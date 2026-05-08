@@ -881,7 +881,7 @@ function renderLogs() {
     const tbody = document.getElementById('logsTableBody');
 
     if (allLogs.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="empty-state">אין רשומות נוכחות</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-state">אין רשומות נוכחות</td></tr>`;
     } else {
         tbody.innerHTML = allLogs.map(log => {
             const deleteIds = [];
@@ -899,8 +899,6 @@ function renderLogs() {
                 <td>${log.checkinTime ? formatTime(new Date(log.checkinTime)) : '-'}</td>
                 <td>${log.checkoutTime ? formatTime(new Date(log.checkoutTime)) : '<span class="badge badge-active">עדיין באתר</span>'}</td>
                 <td>${log.totalHours ? log.totalHours.toFixed(2) : '-'}</td>
-                <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${log.workDescription || ''}">${log.workDescription || '-'}</td>
-                <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis;" title="${log.notes || ''}">${log.notes || '-'}</td>
                 <td>${deleteBtn}</td>
             </tr>`;
         }).join('');
