@@ -147,6 +147,7 @@ function showTab(tabName) {
 
     if (tabName === 'workers') renderWorkers();
     if (tabName === 'logs') renderLogs();
+    if (tabName === 'hours') renderHours();
     if (tabName === 'projects') renderProjects();
     if (tabName === 'manage') renderManage();
     if (tabName === 'overview') renderOverview();
@@ -705,6 +706,99 @@ function editWorker(id) {
 
     showModal('addWorkerModal');
     document.querySelector('#addWorkerModal .modal-header h3').textContent = 'עריכת עובד';
+}
+
+// ========== שעות עובדים - 250 שעות ==========
+function renderHours() {
+    const monthFilter = document.getElementById('hoursFilterMonth');
+    const tbody = document.getElementById('hoursTableBody');
+
+    // Build month options
+    const months = new Set();
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    months.add(currentMonth);
+
+    supabaseAttendance.forEach(entry => {
+        if (entry.time) {
+            const d = new Date(entry.time);
+            const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            months.add(m);
+        }
+    });
+
+    const sortedMonths = [...months].sort().reverse();
+    const selectedMonth = monthFilter.value || currentMonth;
+
+    monthFilter.innerHTML = sortedMonths.map(m => {
+        const [y, mo] = m.split('-');
+        const label = new Date(y, mo - 1).toLocaleDateString('he-IL', { year: 'numeric', month: 'long' });
+        return `<option value="${m}" ${m === selectedMonth ? 'selected' : ''}>${label}</option>`;
+    }).join('');
+
+    // Filter attendance for selected month
+    const monthEntries = supabaseAttendance.filter(entry => {
+        if (!entry.time) return false;
+        const d = new Date(entry.time);
+        const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        return m === selectedMonth;
+    });
+
+    const checkins = monthEntries.filter(e => e.type === 'checkin');
+    const checkouts = monthEntries.filter(e => e.type === 'checkout');
+
+    // Calculate hours per worker
+    const workerHours = {};
+
+    checkins.forEach(ci => {
+        const key = ci.worker_id;
+        if (!workerHours[key]) {
+            workerHours[key] = { name: ci.full_name, role: ci.role, workerId: ci.worker_id, totalHours: 0 };
+        }
+        const matchingCheckout = checkouts.find(co =>
+            co.worker_id === ci.worker_id && co.date === ci.date
+        );
+        if (matchingCheckout) {
+            const ciTime = new Date(ci.time);
+            const coTime = new Date(matchingCheckout.time);
+            const hours = (coTime - ciTime) / (1000 * 60 * 60);
+            if (hours > 0 && hours < 24) {
+                workerHours[key].totalHours += hours;
+            }
+        }
+    });
+
+    const workers = Object.values(workerHours).sort((a, b) => b.totalHours - a.totalHours);
+
+    if (workers.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">אין נתוני שעות לחודש זה</td></tr>`;
+    } else {
+        tbody.innerHTML = workers.map(w => {
+            const done = w.totalHours;
+            const target = 250;
+            const remaining = Math.max(0, target - done);
+            const pct = Math.min(100, (done / target) * 100);
+            let color = '#059669';
+            if (pct < 25) color = '#dc2626';
+            else if (pct < 50) color = '#f97316';
+            else if (pct < 75) color = '#eab308';
+
+            return `
+            <tr>
+                <td><strong>${w.workerId}</strong></td>
+                <td>${w.name}</td>
+                <td><span class="badge badge-type">${w.role}</span></td>
+                <td><strong>${done.toFixed(1)}</strong></td>
+                <td>250</td>
+                <td>${remaining.toFixed(1)}</td>
+                <td>
+                    <div class="progress-bar">
+                        <div class="fill" style="width: ${pct}%; background: ${color};">${pct.toFixed(0)}%</div>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+    }
 }
 
 // ========== רינדור יומן נוכחות ==========
