@@ -1047,23 +1047,37 @@ function changePassword() {
 
 // ========== ייצוא נתונים ==========
 function exportData() {
-    if (data.logs.length === 0) {
+    if (data.logs.length === 0 && supabaseAttendance.length === 0) {
         showToast('אין נתונים לייצוא', 'error');
         return;
     }
 
     // BOM for UTF-8 Excel support
     let csv = '\uFEFF';
-    csv += 'תאריך,עובד,סוג עובד,פרויקט,שעת כניסה,שעת יציאה,סה"כ שעות,מה בוצע,הערות\n';
+    csv += 'תאריך,עובד,תפקיד,סוג,שעה,מה בוצע\n';
 
+    // Export Supabase attendance data
+    supabaseAttendance.forEach(entry => {
+        const type = entry.type === 'checkin' ? 'כניסה' : 'יציאה';
+        const name = (entry.full_name || '-').replace(/"/g, '""');
+        const role = (entry.role || '-').replace(/"/g, '""');
+        const workDone = (entry.work_done || '-').replace(/"/g, '""');
+        const timeDisplay = entry.time_display || '';
+        const date = entry.date || '';
+
+        csv += `${date},"${name}","${role}","${type}",${timeDisplay},"${workDone}"\n`;
+    });
+
+    // Also export local logs
     data.logs.forEach(log => {
         const checkin = formatTime(new Date(log.checkinTime));
-        const checkout = log.checkoutTime ? formatTime(new Date(log.checkoutTime)) : 'עדיין באתר';
-        const hours = log.totalHours ? log.totalHours.toFixed(2) : '-';
+        const checkout = log.checkoutTime ? formatTime(new Date(log.checkoutTime)) : '';
         const desc = (log.workDescription || '-').replace(/"/g, '""');
-        const notes = (log.notes || '-').replace(/"/g, '""');
 
-        csv += `${log.date},"${log.workerName}","${log.workerType}","${log.projectName}",${checkin},${checkout},${hours},"${desc}","${notes}"\n`;
+        csv += `${log.date},"${log.workerName}","${log.workerType}","כניסה",${checkin},""\n`;
+        if (log.checkoutTime) {
+            csv += `${log.date},"${log.workerName}","${log.workerType}","יציאה",${checkout},"${desc}"\n`;
+        }
     });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
