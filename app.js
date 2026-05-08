@@ -498,7 +498,8 @@ function approveAllPending() {
 }
 
 // ========== רינדור דשבורד ==========
-function renderAll() {
+async function renderAll() {
+    await loadAttendance();
     renderOverview();
     checkPendingRegistrations();
 }
