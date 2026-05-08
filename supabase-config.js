@@ -20,6 +20,21 @@ async function supabaseInsert(table, data) {
     return await res.json();
 }
 
+async function supabaseDelete(table, id) {
+    const res = await fetch(`${SUPABASE_REST}/${table}?id=eq.${id}`, {
+        method: 'DELETE',
+        headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY
+        }
+    });
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'שגיאה במחיקה');
+    }
+    return true;
+}
+
 async function supabaseSelect(table) {
     const res = await fetch(`${SUPABASE_REST}/${table}?select=*&order=time.desc&limit=200`, {
         headers: {

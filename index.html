@@ -300,6 +300,7 @@
                             <option value="">כל העובדים</option>
                         </select>
                         <input type="date" id="logFilterDate" onchange="renderLogs()">
+                        <button class="btn btn-primary" onclick="exportData()" style="padding: 0.5rem 1rem; font-size: 0.85rem;">⬇ הורד CSV</button>
                     </div>
                 </div>
                 <div class="table-container">
@@ -315,6 +316,7 @@
                                 <th>שעות</th>
                                 <th>מה בוצע</th>
                                 <th>הערות</th>
+                                <th>פעולות</th>
                             </tr>
                         </thead>
                         <tbody id="logsTableBody">

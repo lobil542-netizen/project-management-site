@@ -157,6 +157,20 @@ body {
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
 }
 
+.btn-delete {
+    background: #dc2626;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.2s;
+}
+.btn-delete:hover {
+    background: #b91c1c;
+}
+
 .btn-secondary {
     background: var(--bg-card);
     color: var(--text-primary);

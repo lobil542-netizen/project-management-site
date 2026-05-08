@@ -731,6 +731,7 @@ function renderLogs() {
 
     // Add Firebase attendance to logs
     const firebaseLogs = supabaseAttendance.map(entry => ({
+        id: entry.id,
         date: entry.date,
         workerName: entry.full_name,
         workerType: entry.role,
@@ -760,6 +761,7 @@ function renderLogs() {
             const hours = ((coTime - ciTime) / (1000 * 60 * 60));
             pairedLogs.push({
                 ...ci,
+                checkoutId: matchingCheckout.id,
                 checkoutTime: matchingCheckout.checkoutTime,
                 totalHours: hours > 0 ? hours : null,
                 workDescription: matchingCheckout.workDescription
@@ -786,9 +788,16 @@ function renderLogs() {
     const tbody = document.getElementById('logsTableBody');
 
     if (allLogs.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" class="empty-state">אין רשומות נוכחות</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="empty-state">אין רשומות נוכחות</td></tr>`;
     } else {
-        tbody.innerHTML = allLogs.map(log => `
+        tbody.innerHTML = allLogs.map(log => {
+            const deleteIds = [];
+            if (log.id) deleteIds.push(log.id);
+            if (log.checkoutId) deleteIds.push(log.checkoutId);
+            const deleteBtn = log.isFirebase && deleteIds.length > 0
+                ? `<button class="btn-delete" onclick="deleteAttendanceRecord([${deleteIds.join(',')}])" title="מחק רשומה">🗑</button>`
+                : '-';
+            return `
             <tr>
                 <td>${log.date}</td>
                 <td><strong>${log.workerName}</strong></td>
@@ -799,8 +808,9 @@ function renderLogs() {
                 <td>${log.totalHours ? log.totalHours.toFixed(2) : '-'}</td>
                 <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${log.workDescription || ''}">${log.workDescription || '-'}</td>
                 <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis;" title="${log.notes || ''}">${log.notes || '-'}</td>
-            </tr>
-        `).join('');
+                <td>${deleteBtn}</td>
+            </tr>`;
+        }).join('');
     }
 }
 
@@ -1046,6 +1056,20 @@ function changePassword() {
 }
 
 // ========== ייצוא נתונים ==========
+async function deleteAttendanceRecord(ids) {
+    if (!confirm('האם אתה בטוח שברצונך למחוק רשומה זו?')) return;
+    try {
+        for (const id of ids) {
+            await supabaseDelete('attendance', id);
+        }
+        showToast('הרשומה נמחקה בהצלחה', 'success');
+        await loadAttendance();
+        renderLogs();
+    } catch (err) {
+        showToast('שגיאה במחיקה: ' + err.message, 'error');
+    }
+}
+
 function exportData() {
     if (data.logs.length === 0 && supabaseAttendance.length === 0) {
         showToast('אין נתונים לייצוא', 'error');
