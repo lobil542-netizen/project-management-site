@@ -1122,6 +1122,7 @@ async function toggleProject(id) {
 }
 
 async function deleteProject(id) {
+    if (!verifyAdminPassword()) return;
     if (!confirm('האם למחוק את הפרויקט?')) return;
     try {
         await supabaseDelete('projects', id);
@@ -1196,7 +1197,18 @@ function changePassword() {
 }
 
 // ========== ייצוא נתונים ==========
+function verifyAdminPassword(action) {
+    const pass = prompt('הכנס סיסמת מנהל לאישור:');
+    if (!pass) return false;
+    if (pass !== data.adminPass) {
+        showToast('סיסמה שגויה - הפעולה בוטלה', 'error');
+        return false;
+    }
+    return true;
+}
+
 async function deleteWorkerRecord(id) {
+    if (!verifyAdminPassword()) return;
     if (!confirm('האם אתה בטוח שברצונך להסיר עובד זה?')) return;
     try {
         await supabaseDelete('workers', id);
@@ -1208,6 +1220,7 @@ async function deleteWorkerRecord(id) {
 }
 
 async function deleteAttendanceRecord(ids) {
+    if (!verifyAdminPassword()) return;
     if (!confirm('האם אתה בטוח שברצונך למחוק רשומה זו?')) return;
     try {
         for (const id of ids) {
