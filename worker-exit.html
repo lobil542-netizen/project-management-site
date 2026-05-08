@@ -93,6 +93,10 @@
                 </div>
                 <input type="hidden" id="fullName">
                 <input type="hidden" id="role">
+                <div class="form-group" id="projectGroup" style="display: none;">
+                    <label id="t-projectLabel" style="font-weight: 600; color: #94a3b8; font-size: 0.9rem;">פרויקט <span class="req">*</span></label>
+                    <select id="projectSelect" required style="width: 100%; padding: 0.85rem 1rem; background: #334155; border: 1px solid #475569; border-radius: 10px; color: #f1f5f9; font-family: 'Heebo', sans-serif; font-size: 1rem;"></select>
+                </div>
                 <div class="form-group" id="workDoneGroup" style="display: none;">
                     <label id="t-workLabel"></label>
                     <textarea id="workDone" required rows="4"></textarea>
@@ -161,6 +165,7 @@
                     const roleDisplay = TRANSLATIONS[currentLang].roles[currentWorker.role] || currentWorker.role;
                     info.textContent = currentWorker.full_name + ' - ' + roleDisplay;
                     info.style.display = 'block';
+                    await loadProjects();
                     document.getElementById('workDoneGroup').style.display = 'block';
                     btn.disabled = false;
                     btn.textContent = T('exitBtn');
@@ -175,12 +180,27 @@
             }
         }
 
+        async function loadProjects() {
+            try {
+                const projects = await supabaseSelectAll('projects');
+                const select = document.getElementById('projectSelect');
+                const group = document.getElementById('projectGroup');
+                if (projects && projects.length > 0) {
+                    select.innerHTML = projects.filter(p => p.active).map(p =>
+                        `<option value="${p.name}">${p.name}</option>`
+                    ).join('');
+                    group.style.display = 'block';
+                }
+            } catch (e) { console.log('Error loading projects:', e.message); }
+        }
+
         function resetWorkerInfo() {
             currentWorker = null;
             document.getElementById('fullName').value = '';
             document.getElementById('role').value = '';
             document.getElementById('workerInfo').style.display = 'none';
             document.getElementById('workerError').style.display = 'none';
+            document.getElementById('projectGroup').style.display = 'none';
             document.getElementById('workDoneGroup').style.display = 'none';
             document.getElementById('submitBtn').disabled = true;
             document.getElementById('submitBtn').textContent = T('enterNumberFirst');
@@ -200,11 +220,13 @@
             const now = new Date();
 
             try {
+                const project = document.getElementById('projectSelect').value || '';
                 await supabaseInsert('attendance', {
                     type: 'checkout',
                     full_name: fullName,
                     role: role,
                     worker_id: workerId,
+                    project: project,
                     work_done: workDone,
                     time_display: now.toLocaleString('he-IL'),
                     date: now.toLocaleDateString('he-IL')

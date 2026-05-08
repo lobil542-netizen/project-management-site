@@ -964,26 +964,51 @@ function getRoleHours() {
     return roleHours;
 }
 
-function renderProjects() {
+async function renderProjects() {
     const container = document.getElementById('projectsList');
     const budget = data.stageBudgetHours || 250;
 
-    if (data.projects.length === 0) {
+    let projects = [];
+    try {
+        projects = await supabaseSelectAll('projects');
+    } catch (e) {
+        console.log('Error loading projects:', e.message);
+    }
+
+    if (!projects || projects.length === 0) {
         container.innerHTML = '<div class="empty-state">אין פרויקטים. לחץ "הוסף פרויקט" כדי להתחיל.</div>';
         return;
     }
 
-    const roleHours = getRoleHours();
-    const totalAllHours = Object.values(roleHours).reduce((s, h) => s + h, 0);
-    const totalWorkers = new Set(supabaseAttendance.map(e => e.worker_id)).size;
-    const activeNow = supabaseAttendance.filter(e => {
-        if (e.type !== 'checkin') return false;
-        const today = new Date().toLocaleDateString('he-IL');
-        if (e.date !== today) return false;
-        return !supabaseAttendance.some(co => co.type === 'checkout' && co.worker_id === e.worker_id && co.date === today);
-    }).length;
+    container.innerHTML = projects.map(project => {
+        // Filter attendance for this project only
+        const projAttendance = supabaseAttendance.filter(e => e.project === project.name);
+        const projCheckins = projAttendance.filter(e => e.type === 'checkin');
+        const projCheckouts = projAttendance.filter(e => e.type === 'checkout');
 
-    container.innerHTML = data.projects.map(project => {
+        // Calculate role hours for this project
+        const roleHours = {};
+        data.workerTypes.forEach(r => { roleHours[r] = 0; });
+
+        projCheckins.forEach(ci => {
+            const co = projCheckouts.find(c => c.worker_id === ci.worker_id && c.date === ci.date);
+            if (co) {
+                const hours = (new Date(co.time) - new Date(ci.time)) / (1000 * 60 * 60);
+                if (hours > 0 && hours < 24) {
+                    if (roleHours[ci.role] !== undefined) roleHours[ci.role] += hours;
+                    else roleHours[ci.role] = hours;
+                }
+            }
+        });
+
+        const totalHours = Object.values(roleHours).reduce((s, h) => s + h, 0);
+        const totalWorkers = new Set(projAttendance.map(e => e.worker_id)).size;
+        const today = new Date().toLocaleDateString('he-IL');
+        const activeNow = projCheckins.filter(ci => {
+            if (ci.date !== today) return false;
+            return !projCheckouts.some(co => co.worker_id === ci.worker_id && co.date === today);
+        }).length;
+
         const rolesHtml = data.workerTypes.map(role => {
             const hours = roleHours[role] || 0;
             const percent = Math.min((hours / budget) * 100, 100);
@@ -1017,8 +1042,8 @@ function renderProjects() {
                         ${project.description ? `<p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">${project.description}</p>` : ''}
                     </div>
                     <div style="display: flex; gap: 0.4rem;">
-                        <button class="btn btn-outline btn-small" onclick="toggleProject('${project.id}')">${project.active ? 'השהה' : 'הפעל'}</button>
-                        <button class="btn btn-danger btn-small" onclick="deleteProject('${project.id}')">מחק</button>
+                        <button class="btn btn-outline btn-small" onclick="toggleProject(${project.id})">${project.active ? 'השהה' : 'הפעל'}</button>
+                        <button class="btn btn-danger btn-small" onclick="deleteProject(${project.id})">מחק</button>
                     </div>
                 </div>
                 <div class="project-stats">
@@ -1031,11 +1056,11 @@ function renderProjects() {
                         <span class="project-stat-label">נוכחים כרגע</span>
                     </div>
                     <div class="project-stat">
-                        <span class="project-stat-num">${totalAllHours.toFixed(1)}</span>
+                        <span class="project-stat-num">${totalHours.toFixed(1)}</span>
                         <span class="project-stat-label">סה"כ שעות</span>
                     </div>
                     <div class="project-stat">
-                        <span class="project-stat-num">${supabaseAttendance.length}</span>
+                        <span class="project-stat-num">${projAttendance.length}</span>
                         <span class="project-stat-label">רשומות</span>
                     </div>
                 </div>
@@ -1050,58 +1075,60 @@ function renderProjects() {
     }).join('');
 }
 
-function addProject(e) {
+async function addProject(e) {
     e.preventDefault();
     const name = document.getElementById('newProjectName').value.trim();
     const location = document.getElementById('newProjectLocation').value.trim();
     const description = document.getElementById('newProjectDesc').value.trim();
 
-    const project = {
-        id: 'proj_' + Date.now(),
-        name,
-        location,
-        description,
-        createdAt: new Date().toISOString(),
-        active: true
-    };
-
-    data.projects.push(project);
-    saveData();
-    closeModal('addProjectModal');
-    showToast(`הפרויקט "${name}" נוסף בהצלחה`, 'success');
-    renderProjects();
-
-    // Clear form
-    document.getElementById('newProjectName').value = '';
-    document.getElementById('newProjectLocation').value = '';
-    document.getElementById('newProjectDesc').value = '';
-}
-
-function toggleProject(id) {
-    const project = data.projects.find(p => p.id === id);
-    if (project) {
-        project.active = !project.active;
-        saveData();
+    try {
+        await supabaseInsert('projects', {
+            name: name,
+            location: location,
+            description: description,
+            active: true
+        });
+        closeModal('addProjectModal');
+        showToast(`הפרויקט "${name}" נוסף בהצלחה`, 'success');
         renderProjects();
-        showToast(`הפרויקט ${project.active ? 'הופעל' : 'הושהה'}`, 'info');
+        document.getElementById('newProjectName').value = '';
+        document.getElementById('newProjectLocation').value = '';
+        document.getElementById('newProjectDesc').value = '';
+    } catch (err) {
+        showToast('שגיאה: ' + err.message, 'error');
     }
 }
 
-function deleteProject(id) {
-    const project = data.projects.find(p => p.id === id);
-    if (!project) return;
-
-    const workersInProject = data.workers.filter(w => w.projectId === id);
-    if (workersInProject.length > 0) {
-        showToast('לא ניתן למחוק פרויקט עם עובדים משויכים', 'error');
-        return;
-    }
-
-    if (confirm(`האם למחוק את הפרויקט "${project.name}"?`)) {
-        data.projects = data.projects.filter(p => p.id !== id);
-        saveData();
+async function toggleProject(id) {
+    try {
+        const projects = await supabaseSelectAll('projects');
+        const project = projects.find(p => p.id === id);
+        if (!project) return;
+        const res = await fetch(`${SUPABASE_REST}/projects?id=eq.${id}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY
+            },
+            body: JSON.stringify({ active: !project.active })
+        });
+        if (!res.ok) throw new Error('שגיאה בעדכון');
+        showToast(`הפרויקט ${!project.active ? 'הופעל' : 'הושהה'}`, 'info');
         renderProjects();
+    } catch (err) {
+        showToast('שגיאה: ' + err.message, 'error');
+    }
+}
+
+async function deleteProject(id) {
+    if (!confirm('האם למחוק את הפרויקט?')) return;
+    try {
+        await supabaseDelete('projects', id);
         showToast('הפרויקט נמחק', 'info');
+        renderProjects();
+    } catch (err) {
+        showToast('שגיאה: ' + err.message, 'error');
     }
 }
 
