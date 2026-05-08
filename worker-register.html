@@ -10,13 +10,20 @@
         body {
             font-family: 'Heebo', sans-serif;
             background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            color: #f1f5f9; min-height: 100vh; direction: rtl;
+            color: #f1f5f9; min-height: 100vh;
             display: flex; align-items: center; justify-content: center; padding: 1rem;
         }
         .card {
             background: #1e293b; border: 1px solid #334155; border-radius: 16px;
             padding: 2rem; width: 100%; max-width: 440px; box-shadow: 0 10px 40px rgba(0,0,0,0.4);
         }
+        .lang-bar { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 1.5rem; }
+        .lang-btn {
+            padding: 4px 10px; border-radius: 8px; border: 1px solid #475569;
+            background: #334155; color: #94a3b8; font-size: 0.8rem; cursor: pointer;
+            font-family: 'Heebo', sans-serif; transition: all 0.2s;
+        }
+        .lang-btn.active, .lang-btn:hover { background: #059669; color: white; border-color: #059669; }
         .header { text-align: center; margin-bottom: 2rem; }
         .header .icon {
             width: 70px; height: 70px; background: linear-gradient(135deg, #059669, #10b981);
@@ -70,6 +77,7 @@
 </head>
 <body>
     <div class="card">
+        <div id="langSelector" class="lang-bar"></div>
         <div id="formView">
             <div class="header">
                 <div class="icon">
@@ -80,40 +88,24 @@
                         <line x1="23" y1="11" x2="17" y2="11"/>
                     </svg>
                 </div>
-                <h1>רישום עובד חדש</h1>
-                <p>מלא את הפרטים לקבלת מספר עובד</p>
+                <h1 id="t-title"></h1>
+                <p id="t-subtitle"></p>
             </div>
             <form id="registerForm" onsubmit="submitRegister(event)">
                 <div class="form-group">
-                    <label>שם מלא <span class="req">*</span></label>
-                    <input type="text" id="fullName" required placeholder="שם פרטי ומשפחה" autocomplete="name">
+                    <label id="t-nameLabel"></label>
+                    <input type="text" id="fullName" required autocomplete="name">
                 </div>
                 <div class="form-group">
-                    <label>תעודת זהות <span class="req">*</span></label>
-                    <input type="text" id="idNumber" required placeholder="מספר תעודת זהות" pattern="[0-9]{5,9}" title="הכנס 5-9 ספרות" inputmode="numeric">
+                    <label id="t-idLabel"></label>
+                    <input type="text" id="idNumber" required pattern="[0-9]{5,9}" title="5-9 digits" inputmode="numeric">
                 </div>
                 <div class="form-group">
-                    <label>מקצוע <span class="req">*</span></label>
-                    <select id="role" required>
-                        <option value="">בחר מקצוע...</option>
-                        <option value="אינסטלטור">אינסטלטור</option>
-                        <option value="חשמלאי">חשמלאי</option>
-                        <option value="מיזוג">מיזוג</option>
-                        <option value="מודד">מודד</option>
-                        <option value="מנהל עבודה">מנהל עבודה</option>
-                        <option value="מנהל פרויקט">מנהל פרויקט</option>
-                        <option value="מהנדס">מהנדס</option>
-                        <option value="טפסן">טפסן</option>
-                        <option value="ברזלן">ברזלן</option>
-                        <option value="בטונאי">בטונאי</option>
-                        <option value="עובד כללי">עובד כללי</option>
-                        <option value="מפעיל מנוף">מפעיל מנוף</option>
-                        <option value="מפעיל טרקטור">מפעיל טרקטור</option>
-                        <option value="משאבות בטון">משאבות בטון</option>
-                    </select>
+                    <label id="t-roleLabel"></label>
+                    <select id="role" required></select>
                 </div>
                 <p id="errorMsg" class="error-msg"></p>
-                <button type="submit" class="btn" id="submitBtn">הרשם וקבל מספר עובד</button>
+                <button type="submit" class="btn" id="submitBtn"></button>
             </form>
         </div>
         <div id="successView" class="success">
@@ -123,49 +115,65 @@
                     <polyline points="22 4 12 14.01 9 11.01"/>
                 </svg>
             </div>
-            <h2>נרשמת בהצלחה!</h2>
-            <p>שמור את מספר העובד שלך - תצטרך אותו לכניסה ויציאה</p>
+            <h2 id="t-success"></h2>
+            <p id="t-saveMsg"></p>
             <div class="worker-number">
-                <small>מספר העובד שלך</small>
+                <small id="t-yourNum"></small>
                 <span id="workerNumber"></span>
             </div>
             <div id="summary" class="summary-box"></div>
-            <button class="btn btn-back" onclick="resetForm()">רישום עובד נוסף</button>
+            <button class="btn btn-back" onclick="resetForm()" id="t-anotherBtn"></button>
         </div>
     </div>
 
     <script src="supabase-config.js"></script>
+    <script src="translations.js"></script>
     <script>
+        function applyTranslations() {
+            document.getElementById('t-title').textContent = T('regTitle');
+            document.getElementById('t-subtitle').textContent = T('regSubtitle');
+            document.getElementById('t-nameLabel').innerHTML = T('fullName') + ' <span class="req">*</span>';
+            document.getElementById('fullName').placeholder = T('fullNamePlaceholder');
+            document.getElementById('t-idLabel').innerHTML = T('idNumber') + ' <span class="req">*</span>';
+            document.getElementById('idNumber').placeholder = T('idPlaceholder');
+            document.getElementById('t-roleLabel').innerHTML = T('profession') + ' <span class="req">*</span>';
+            document.getElementById('submitBtn').textContent = T('registerBtn');
+            document.getElementById('t-success').textContent = T('regSuccess');
+            document.getElementById('t-saveMsg').textContent = T('regSaveNumber');
+            document.getElementById('t-yourNum').textContent = T('yourNumber');
+            document.getElementById('t-anotherBtn').textContent = T('registerAnother');
+            buildRoleSelect('role');
+            buildLanguageSelector();
+        }
+
         async function submitRegister(e) {
             e.preventDefault();
             const btn = document.getElementById('submitBtn');
             const errorMsg = document.getElementById('errorMsg');
             errorMsg.style.display = 'none';
             btn.disabled = true;
-            btn.textContent = 'רושם...';
+            btn.textContent = T('registering');
 
             const fullName = document.getElementById('fullName').value.trim();
             const idNumber = document.getElementById('idNumber').value.trim();
             const role = document.getElementById('role').value;
 
             try {
-                // Check if ID already registered
                 const existing = await supabaseSelectWhere('workers', 'id_number', idNumber);
                 if (existing && existing.length > 0) {
-                    errorMsg.textContent = 'תעודת זהות זו כבר רשומה במערכת. מספר העובד שלך: ' + existing[0].worker_number;
+                    errorMsg.textContent = T('alreadyRegistered') + existing[0].worker_number;
                     errorMsg.style.display = 'block';
                     btn.disabled = false;
-                    btn.textContent = 'הרשם וקבל מספר עובד';
+                    btn.textContent = T('registerBtn');
                     return;
                 }
 
-                // Get next worker number
                 const allWorkers = await supabaseSelectAll('workers');
                 const nextNumber = (allWorkers.length > 0)
                     ? Math.max(...allWorkers.map(w => w.worker_number || 0)) + 1
                     : 100;
 
-                const result = await supabaseInsert('workers', {
+                await supabaseInsert('workers', {
                     full_name: fullName,
                     id_number: idNumber,
                     role: role,
@@ -176,15 +184,15 @@
                 document.getElementById('successView').classList.add('show');
                 document.getElementById('workerNumber').textContent = nextNumber;
                 document.getElementById('summary').innerHTML =
-                    `<strong>שם:</strong> ${fullName}<br>` +
-                    `<strong>ת.ז.:</strong> ${idNumber}<br>` +
-                    `<strong>מקצוע:</strong> ${role}<br>` +
-                    `<strong>מספר עובד:</strong> ${nextNumber}`;
+                    `<strong>${T('lblName')}:</strong> ${fullName}<br>` +
+                    `<strong>${T('lblIdNum')}:</strong> ${idNumber}<br>` +
+                    `<strong>${T('lblRole')}:</strong> ${TRANSLATIONS[currentLang].roles[role]}<br>` +
+                    `<strong>${T('lblWorkerNum')}:</strong> ${nextNumber}`;
             } catch (err) {
-                errorMsg.textContent = 'שגיאה: ' + err.message;
+                errorMsg.textContent = err.message;
                 errorMsg.style.display = 'block';
                 btn.disabled = false;
-                btn.textContent = 'הרשם וקבל מספר עובד';
+                btn.textContent = T('registerBtn');
             }
         }
 
@@ -193,9 +201,12 @@
             document.getElementById('formView').style.display = 'block';
             document.getElementById('successView').classList.remove('show');
             document.getElementById('submitBtn').disabled = false;
-            document.getElementById('submitBtn').textContent = 'הרשם וקבל מספר עובד';
+            document.getElementById('submitBtn').textContent = T('registerBtn');
             document.getElementById('errorMsg').style.display = 'none';
         }
+
+        buildLanguageSelector();
+        applyTranslations();
     </script>
 </body>
 </html>

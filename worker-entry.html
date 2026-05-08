@@ -10,13 +10,20 @@
         body {
             font-family: 'Heebo', sans-serif;
             background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            color: #f1f5f9; min-height: 100vh; direction: rtl;
+            color: #f1f5f9; min-height: 100vh;
             display: flex; align-items: center; justify-content: center; padding: 1rem;
         }
         .card {
             background: #1e293b; border: 1px solid #334155; border-radius: 16px;
             padding: 2rem; width: 100%; max-width: 440px; box-shadow: 0 10px 40px rgba(0,0,0,0.4);
         }
+        .lang-bar { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 1.5rem; }
+        .lang-btn {
+            padding: 4px 10px; border-radius: 8px; border: 1px solid #475569;
+            background: #334155; color: #94a3b8; font-size: 0.8rem; cursor: pointer;
+            font-family: 'Heebo', sans-serif; transition: all 0.2s;
+        }
+        .lang-btn.active, .lang-btn:hover { background: #2563eb; color: white; border-color: #2563eb; }
         .header { text-align: center; margin-bottom: 2rem; }
         .header .icon {
             width: 70px; height: 70px; background: linear-gradient(135deg, #2563eb, #8b5cf6);
@@ -28,12 +35,12 @@
         .form-group { margin-bottom: 1.2rem; }
         .form-group label { display: block; margin-bottom: 0.4rem; font-weight: 600; color: #94a3b8; font-size: 0.9rem; }
         .form-group label .req { color: #ef4444; }
-        .form-group input, .form-group select {
+        .form-group input {
             width: 100%; padding: 0.85rem 1rem; background: #334155;
             border: 1px solid #475569; border-radius: 10px; color: #f1f5f9;
             font-family: 'Heebo', sans-serif; font-size: 1rem; transition: border-color 0.2s;
         }
-        .form-group input:focus, .form-group select:focus {
+        .form-group input:focus {
             outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
         }
         .btn {
@@ -64,6 +71,7 @@
 </head>
 <body>
     <div class="card">
+        <div id="langSelector" class="lang-bar"></div>
         <div id="formView">
             <div class="header">
                 <div class="icon">
@@ -74,19 +82,19 @@
                         <line x1="23" y1="11" x2="17" y2="11"/>
                     </svg>
                 </div>
-                <h1>כניסת עובד</h1>
-                <p>מלא את הפרטים שלך לרישום כניסה</p>
+                <h1 id="t-title"></h1>
+                <p id="t-subtitle"></p>
             </div>
             <form id="entryForm" onsubmit="submitEntry(event)">
                 <div class="form-group">
-                    <label>מספר עובד <span class="req">*</span></label>
-                    <input type="text" id="workerId" required placeholder="הכנס מספר עובד" pattern="[0-9]{2,9}" title="הכנס מספר עובד" inputmode="numeric">
+                    <label id="t-numLabel"></label>
+                    <input type="text" id="workerId" required pattern="[0-9]{2,9}" inputmode="numeric">
                     <p id="workerInfo" style="color: #10b981; font-size: 0.85rem; margin-top: 0.4rem; display: none;"></p>
                     <p id="workerError" style="color: #ef4444; font-size: 0.85rem; margin-top: 0.4rem; display: none;"></p>
                 </div>
                 <input type="hidden" id="fullName">
                 <input type="hidden" id="role">
-                <button type="submit" class="btn" id="submitBtn" disabled>הכנס מספר עובד קודם</button>
+                <button type="submit" class="btn" id="submitBtn" disabled></button>
             </form>
         </div>
         <div id="successView" class="success">
@@ -96,18 +104,31 @@
                     <polyline points="22 4 12 14.01 9 11.01"/>
                 </svg>
             </div>
-            <h2>הכניסה נרשמה בהצלחה!</h2>
-            <p>הנתונים נשלחו למערכת</p>
+            <h2 id="t-success"></h2>
+            <p id="t-dataSent"></p>
             <div id="summary" class="summary-box"></div>
-            <button class="btn btn-back" onclick="resetForm()">חזור לטופס</button>
+            <button class="btn btn-back" onclick="resetForm()" id="t-backBtn"></button>
         </div>
     </div>
 
     <script src="supabase-config.js"></script>
+    <script src="translations.js"></script>
     <script>
         let currentWorker = null;
         const workerIdInput = document.getElementById('workerId');
         let lookupTimeout = null;
+
+        function applyTranslations() {
+            document.getElementById('t-title').textContent = T('entryTitle');
+            document.getElementById('t-subtitle').textContent = T('entrySubtitle');
+            document.getElementById('t-numLabel').innerHTML = T('workerNumber') + ' <span class="req">*</span>';
+            document.getElementById('workerId').placeholder = T('workerNumberPlaceholder');
+            document.getElementById('submitBtn').textContent = currentWorker ? T('entryBtn') : T('enterNumberFirst');
+            document.getElementById('t-success').textContent = T('entrySuccess');
+            document.getElementById('t-dataSent').textContent = T('dataSent');
+            document.getElementById('t-backBtn').textContent = T('backToForm');
+            buildLanguageSelector();
+        }
 
         workerIdInput.addEventListener('input', function() {
             clearTimeout(lookupTimeout);
@@ -132,17 +153,18 @@
                     currentWorker = results[0];
                     document.getElementById('fullName').value = currentWorker.full_name;
                     document.getElementById('role').value = currentWorker.role;
-                    info.textContent = currentWorker.full_name + ' - ' + currentWorker.role;
+                    const roleDisplay = TRANSLATIONS[currentLang].roles[currentWorker.role] || currentWorker.role;
+                    info.textContent = currentWorker.full_name + ' - ' + roleDisplay;
                     info.style.display = 'block';
                     btn.disabled = false;
-                    btn.textContent = 'רישום כניסה';
+                    btn.textContent = T('entryBtn');
                 } else {
                     resetWorkerInfo();
-                    error.textContent = 'מספר עובד לא נמצא. יש להירשם קודם.';
+                    error.textContent = T('workerNotFound');
                     error.style.display = 'block';
                 }
             } catch (err) {
-                error.textContent = 'שגיאה בחיפוש: ' + err.message;
+                error.textContent = T('searchError') + err.message;
                 error.style.display = 'block';
             }
         }
@@ -154,7 +176,7 @@
             document.getElementById('workerInfo').style.display = 'none';
             document.getElementById('workerError').style.display = 'none';
             document.getElementById('submitBtn').disabled = true;
-            document.getElementById('submitBtn').textContent = 'הכנס מספר עובד קודם';
+            document.getElementById('submitBtn').textContent = T('enterNumberFirst');
         }
 
         async function submitEntry(e) {
@@ -162,7 +184,7 @@
             if (!currentWorker) return;
             const btn = document.getElementById('submitBtn');
             btn.disabled = true;
-            btn.textContent = 'שולח...';
+            btn.textContent = T('sending');
 
             const fullName = currentWorker.full_name;
             const role = currentWorker.role;
@@ -181,15 +203,16 @@
 
                 document.getElementById('formView').style.display = 'none';
                 document.getElementById('successView').classList.add('show');
+                const roleDisplay = TRANSLATIONS[currentLang].roles[role] || role;
                 document.getElementById('summary').innerHTML =
-                    `<strong>שם:</strong> ${fullName}<br>` +
-                    `<strong>תפקיד:</strong> ${role}<br>` +
-                    `<strong>מס' עובד:</strong> ${workerId}<br>` +
-                    `<strong>זמן כניסה:</strong> ${now.toLocaleString('he-IL')}`;
+                    `<strong>${T('lblName')}:</strong> ${fullName}<br>` +
+                    `<strong>${T('lblRole')}:</strong> ${roleDisplay}<br>` +
+                    `<strong>${T('lblWorkerNum')}:</strong> ${workerId}<br>` +
+                    `<strong>${T('lblEntryTime')}:</strong> ${now.toLocaleString('he-IL')}`;
             } catch (err) {
-                alert('שגיאה: ' + err.message);
+                alert(err.message);
                 btn.disabled = false;
-                btn.textContent = 'רישום כניסה';
+                btn.textContent = T('entryBtn');
             }
         }
 
@@ -200,6 +223,9 @@
             currentWorker = null;
             resetWorkerInfo();
         }
+
+        buildLanguageSelector();
+        applyTranslations();
     </script>
 </body>
 </html>
