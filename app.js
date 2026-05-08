@@ -595,13 +595,13 @@ function renderOverview() {
 // ========== רינדור עובדים ==========
 async function renderWorkers() {
     const tbody = document.getElementById('workersTableBody');
-    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">טוען...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="empty-state">טוען...</td></tr>`;
 
     try {
         const workers = await supabaseSelectAll('workers');
 
         if (!workers || workers.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="empty-state">אין עובדים רשומים</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" class="empty-state">אין עובדים רשומים</td></tr>`;
         } else {
             tbody.innerHTML = workers.sort((a, b) => a.worker_number - b.worker_number).map(worker => {
                 const regDate = worker.created_at ? new Date(worker.created_at).toLocaleDateString('he-IL') : '-';
@@ -610,13 +610,12 @@ async function renderWorkers() {
                     <td><strong>${worker.worker_number}</strong></td>
                     <td>${worker.full_name}</td>
                     <td><span class="badge badge-type">${worker.role}</span></td>
-                    <td>${worker.id_number}</td>
                     <td>${regDate}</td>
                 </tr>`;
             }).join('');
         }
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="5" class="empty-state">שגיאה בטעינה: ${e.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="empty-state">שגיאה בטעינה: ${e.message}</td></tr>`;
     }
 
     updateWorkerFormSelects();
