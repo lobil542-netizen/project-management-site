@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>טופס קליטת עובד</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Heebo', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #f1f5f9;
+            min-height: 100vh;
+            direction: rtl;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .form-container {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 2rem;
+            width: 100%;
+            max-width: 520px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+        }
+
+        .form-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .form-header .icon {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, #2563eb, #8b5cf6);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+        }
+
+        .form-header .icon svg {
+            width: 36px;
+            height: 36px;
+            color: white;
+        }
+
+        .form-header h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin-bottom: 0.3rem;
+        }
+
+        .form-header p {
+            color: #94a3b8;
+            font-size: 0.95rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.4rem;
+            font-weight: 600;
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        .form-group label .required {
+            color: #ef4444;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            background: #334155;
+            border: 1px solid #475569;
+            border-radius: 10px;
+            color: #f1f5f9;
+            font-family: 'Heebo', sans-serif;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .section-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #3b82f6;
+            margin: 1.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #334155;
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 12px;
+            font-family: 'Heebo', sans-serif;
+            font-weight: 700;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 0.75rem;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+        }
+
+        .btn-whatsapp {
+            background: #25d366;
+            color: white;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn-whatsapp:hover {
+            background: #1fb855;
+        }
+
+        .btn-copy {
+            background: #334155;
+            color: #f1f5f9;
+            border: 1px solid #475569;
+            display: none;
+        }
+
+        .btn-copy:hover {
+            background: #475569;
+        }
+
+        /* Result screen */
+        .result-screen {
+            display: none;
+            text-align: center;
+        }
+
+        .result-screen.show {
+            display: block;
+        }
+
+        .result-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #059669, #10b981);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+        }
+
+        .result-icon svg {
+            width: 40px;
+            height: 40px;
+            color: white;
+        }
+
+        .result-screen h2 {
+            font-size: 1.4rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .result-screen p {
+            color: #94a3b8;
+            margin-bottom: 1.5rem;
+        }
+
+        .result-summary {
+            background: #334155;
+            border-radius: 10px;
+            padding: 1.2rem;
+            text-align: right;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+            line-height: 1.8;
+        }
+
+        .result-summary strong {
+            color: #3b82f6;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #1e293b;
+            border: 1px solid #10b981;
+            color: #10b981;
+            border-radius: 12px;
+            padding: 0.8rem 2rem;
+            font-weight: 600;
+            z-index: 1000;
+            transition: transform 0.3s;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        @media (max-width: 480px) {
+            .form-row { grid-template-columns: 1fr; }
+            .form-container { padding: 1.5rem; }
+            .form-header h1 { font-size: 1.3rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <!-- טופס -->
+        <div id="formView">
+            <div class="form-header">
+                <div class="icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/>
+                        <circle cx="8.5" cy="7" r="4"/>
+                        <line x1="20" y1="8" x2="20" y2="14"/>
+                        <line x1="23" y1="11" x2="17" y2="11"/>
+                    </svg>
+                </div>
+                <h1>טופס קליטת עובד</h1>
+                <p>מלא את הפרטים הבאים כדי להירשם למערכת</p>
+            </div>
+
+            <form id="registerForm" onsubmit="submitForm(event)">
+                <div class="section-title">פרטים אישיים</div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>שם פרטי <span class="required">*</span></label>
+                        <input type="text" id="firstName" required placeholder="שם פרטי">
+                    </div>
+                    <div class="form-group">
+                        <label>שם משפחה <span class="required">*</span></label>
+                        <input type="text" id="lastName" required placeholder="שם משפחה">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>מספר תעודת זהות <span class="required">*</span></label>
+                    <input type="text" id="idNumber" required placeholder="מספר ת.ז." pattern="[0-9]{5,9}" title="הכנס 5-9 ספרות">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>טלפון נייד <span class="required">*</span></label>
+                        <input type="tel" id="phone" required placeholder="050-0000000">
+                    </div>
+                    <div class="form-group">
+                        <label>אימייל</label>
+                        <input type="email" id="email" placeholder="email@example.com">
+                    </div>
+                </div>
+
+                <div class="section-title">פרטי עבודה</div>
+
+                <div class="form-group">
+                    <label>סוג עובד / תפקיד <span class="required">*</span></label>
+                    <select id="workerType" required>
+                        <option value="">בחר סוג עובד...</option>
+                        <option value="אינסטלטור">אינסטלטור</option>
+                        <option value="חשמלאי">חשמלאי</option>
+                        <option value="מיזוג">מיזוג</option>
+                        <option value="מודד">מודד</option>
+                        <option value="מנהל עבודה">מנהל עבודה</option>
+                        <option value="מנהל פרויקט">מנהל פרויקט</option>
+                        <option value="מהנדס">מהנדס</option>
+                        <option value="טפסן">טפסן</option>
+                        <option value="ברזלן">ברזלן</option>
+                        <option value="בטונאי">בטונאי</option>
+                        <option value="עובד כללי">עובד כללי</option>
+                        <option value="מפעיל מנוף">מפעיל מנוף</option>
+                        <option value="מפעיל טרקטור">מפעיל טרקטור</option>
+                        <option value="משאבות בטון">משאבות בטון</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>ניסיון (שנים)</label>
+                    <input type="number" id="experience" placeholder="מספר שנות ניסיון" min="0" max="50">
+                </div>
+
+                <div class="section-title">פרטים נוספים</div>
+
+                <div class="form-group">
+                    <label>כתובת מגורים</label>
+                    <input type="text" id="address" placeholder="עיר, רחוב">
+                </div>
+
+                <div class="form-group">
+                    <label>איש קשר לחירום</label>
+                    <div class="form-row">
+                        <input type="text" id="emergencyName" placeholder="שם">
+                        <input type="tel" id="emergencyPhone" placeholder="טלפון">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>הערות</label>
+                    <textarea id="notes" rows="3" placeholder="הערות נוספות, רישיונות, הסמכות..."></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary">שלח טופס</button>
+            </form>
+        </div>
+
+        <!-- מסך תוצאה -->
+        <div id="resultView" class="result-screen">
+            <div class="result-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+            </div>
+            <h2>הטופס נשלח בהצלחה!</h2>
+            <p>הפרטים שלך נשמרו. שלח את הנתונים למנהל באחת הדרכים הבאות:</p>
+
+            <div id="resultSummary" class="result-summary"></div>
+
+            <button class="btn btn-whatsapp" id="btnWhatsapp" onclick="sendWhatsApp()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                שלח בוואטסאפ למנהל
+            </button>
+
+            <button class="btn btn-copy" id="btnCopy" onclick="copyToClipboard()">העתק פרטים ללוח</button>
+
+            <button class="btn btn-primary" onclick="location.reload()" style="margin-top: 1rem; background: #334155; border: 1px solid #475569;">מלא טופס נוסף</button>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">הועתק ללוח!</div>
+
+    <script>
+        let formData = {};
+
+        function submitForm(e) {
+            e.preventDefault();
+
+            formData = {
+                firstName: document.getElementById('firstName').value.trim(),
+                lastName: document.getElementById('lastName').value.trim(),
+                idNumber: document.getElementById('idNumber').value.trim(),
+                phone: document.getElementById('phone').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                workerType: document.getElementById('workerType').value,
+                experience: document.getElementById('experience').value,
+                address: document.getElementById('address').value.trim(),
+                emergencyName: document.getElementById('emergencyName').value.trim(),
+                emergencyPhone: document.getElementById('emergencyPhone').value.trim(),
+                notes: document.getElementById('notes').value.trim(),
+                submittedAt: new Date().toLocaleString('he-IL')
+            };
+
+            // Save to localStorage for admin import
+            const pending = JSON.parse(localStorage.getItem('pendingWorkerRegistrations') || '[]');
+            pending.push(formData);
+            localStorage.setItem('pendingWorkerRegistrations', JSON.stringify(pending));
+
+            // Show result
+            showResult();
+        }
+
+        function showResult() {
+            document.getElementById('formView').style.display = 'none';
+            document.getElementById('resultView').classList.add('show');
+            document.getElementById('btnWhatsapp').style.display = 'flex';
+            document.getElementById('btnCopy').style.display = 'block';
+
+            const summary = `
+                <strong>שם:</strong> ${formData.firstName} ${formData.lastName}<br>
+                <strong>ת.ז.:</strong> ${formData.idNumber}<br>
+                <strong>טלפון:</strong> ${formData.phone}<br>
+                ${formData.email ? `<strong>אימייל:</strong> ${formData.email}<br>` : ''}
+                <strong>תפקיד:</strong> ${formData.workerType}<br>
+                ${formData.experience ? `<strong>ניסיון:</strong> ${formData.experience} שנים<br>` : ''}
+                ${formData.address ? `<strong>כתובת:</strong> ${formData.address}<br>` : ''}
+                ${formData.emergencyName ? `<strong>איש קשר לחירום:</strong> ${formData.emergencyName} - ${formData.emergencyPhone}<br>` : ''}
+                ${formData.notes ? `<strong>הערות:</strong> ${formData.notes}<br>` : ''}
+                <strong>תאריך שליחה:</strong> ${formData.submittedAt}
+            `;
+            document.getElementById('resultSummary').innerHTML = summary;
+        }
+
+        function getTextSummary() {
+            let text = `טופס קליטת עובד חדש\n`;
+            text += `========================\n`;
+            text += `שם: ${formData.firstName} ${formData.lastName}\n`;
+            text += `ת.ז.: ${formData.idNumber}\n`;
+            text += `טלפון: ${formData.phone}\n`;
+            if (formData.email) text += `אימייל: ${formData.email}\n`;
+            text += `תפקיד: ${formData.workerType}\n`;
+            if (formData.experience) text += `ניסיון: ${formData.experience} שנים\n`;
+            if (formData.address) text += `כתובת: ${formData.address}\n`;
+            if (formData.emergencyName) text += `איש קשר לחירום: ${formData.emergencyName} - ${formData.emergencyPhone}\n`;
+            if (formData.notes) text += `הערות: ${formData.notes}\n`;
+            text += `========================\n`;
+            text += `נשלח: ${formData.submittedAt}`;
+            return text;
+        }
+
+        function sendWhatsApp() {
+            const text = encodeURIComponent(getTextSummary());
+            window.open(`https://wa.me/?text=${text}`, '_blank');
+        }
+
+        function copyToClipboard() {
+            navigator.clipboard.writeText(getTextSummary()).then(() => {
+                const toast = document.getElementById('toast');
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2000);
+            });
+        }
+    </script>
+</body>
+</html>
