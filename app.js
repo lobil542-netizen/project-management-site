@@ -593,32 +593,32 @@ function renderOverview() {
 }
 
 // ========== רינדור עובדים ==========
-function renderWorkers() {
+async function renderWorkers() {
     const tbody = document.getElementById('workersTableBody');
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">טוען...</td></tr>`;
 
-    if (data.workers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">אין עובדים רשומים. לחץ "הוסף עובד" כדי להתחיל.</td></tr>`;
-    } else {
-        tbody.innerHTML = data.workers.map(worker => {
-            const isActive = data.logs.some(l => l.workerId === worker.id && !l.checkoutTime);
-            return `
+    try {
+        const workers = await supabaseSelectAll('workers');
+
+        if (!workers || workers.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="empty-state">אין עובדים רשומים</td></tr>`;
+        } else {
+            tbody.innerHTML = workers.sort((a, b) => a.worker_number - b.worker_number).map(worker => {
+                const regDate = worker.created_at ? new Date(worker.created_at).toLocaleDateString('he-IL') : '-';
+                return `
                 <tr>
-                    <td><strong>${worker.id}</strong></td>
-                    <td>${worker.name}</td>
-                    <td><span class="badge badge-type">${worker.type}</span></td>
-                    <td>${getProjectName(worker.projectId)}</td>
-                    <td><span class="badge ${isActive ? 'badge-active' : 'badge-inactive'}">${isActive ? 'נוכח' : 'לא נוכח'}</span></td>
-                    <td style="font-family: monospace; letter-spacing: 1px;">${worker.id}</td>
-                    <td>
-                        <button class="btn btn-outline btn-small" onclick="editWorker('${worker.id}')">ערוך</button>
-                        <button class="btn btn-danger btn-small" onclick="deleteWorker('${worker.id}')">מחק</button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
+                    <td><strong>${worker.worker_number}</strong></td>
+                    <td>${worker.full_name}</td>
+                    <td><span class="badge badge-type">${worker.role}</span></td>
+                    <td>${worker.id_number}</td>
+                    <td>${regDate}</td>
+                </tr>`;
+            }).join('');
+        }
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="5" class="empty-state">שגיאה בטעינה: ${e.message}</td></tr>`;
     }
 
-    // Update modal selects
     updateWorkerFormSelects();
 }
 
