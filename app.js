@@ -775,7 +775,7 @@ function renderHours() {
     const monthLabel = new Date(selY, selM - 1).toLocaleDateString('he-IL', { year: 'numeric', month: 'long' });
 
     if (workers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="empty-state">אין נתוני שעות לחודש זה</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="empty-state">אין נתוני שעות לחודש זה</td></tr>`;
     } else {
         tbody.innerHTML = workers.map(w => {
             return `
@@ -784,7 +784,6 @@ function renderHours() {
                 <td>${w.name}</td>
                 <td><span class="badge badge-type">${w.role}</span></td>
                 <td><strong>${w.totalHours.toFixed(1)}</strong></td>
-                <td>${monthLabel}</td>
             </tr>`;
         }).join('');
     }
