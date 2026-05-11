@@ -189,7 +189,6 @@
         <nav class="dashboard-nav">
             <button class="nav-btn active" onclick="showTab('overview')" data-tab="overview">סקירה כללית</button>
             <button class="nav-btn" onclick="showTab('workers')" data-tab="workers">עובדים</button>
-            <button class="nav-btn" onclick="showTab('logs')" data-tab="logs">יומן נוכחות</button>
             <button class="nav-btn" onclick="showTab('hours')" data-tab="hours">שעות עובדים</button>
             <button class="nav-btn" onclick="showTab('projects')" data-tab="projects">פרויקטים</button>
             <button class="nav-btn" onclick="showTab('worklog')" data-tab="worklog">יומן עבודה</button>
@@ -295,41 +294,7 @@
                 </div>
             </div>
 
-            <!-- יומן נוכחות -->
-            <div id="tab-logs" class="tab-content">
-                <div class="tab-header">
-                    <h2>יומן נוכחות</h2>
-                    <div class="filter-bar">
-                        <select id="logFilterProject" onchange="renderLogs()">
-                            <option value="">כל הפרויקטים</option>
-                        </select>
-                        <select id="logFilterWorker" onchange="renderLogs()">
-                            <option value="">כל העובדים</option>
-                        </select>
-                        <input type="date" id="logFilterDate" onchange="renderLogs()">
-                        <button class="btn btn-primary" onclick="exportData()" style="padding: 0.5rem 1rem; font-size: 0.85rem;">⬇ הורד CSV</button>
-                    </div>
-                </div>
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>תאריך</th>
-                                <th>עובד</th>
-                                <th>סוג</th>
-                                <th>כניסה</th>
-                                <th>יציאה</th>
-                                <th>שעות</th>
-                                <th>מה בוצע</th>
-                                <th>מחיקה</th>
-                            </tr>
-                        </thead>
-                        <tbody id="logsTableBody">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
+            
             <!-- שעות עובדים -->
             <div id="tab-hours" class="tab-content">
                 <div class="tab-header">
