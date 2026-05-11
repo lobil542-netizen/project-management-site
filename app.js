@@ -1213,6 +1213,10 @@ async function renderProjects() {
                     <div class="stages-budget-list">
                         ${rolesHtml}
                     </div>
+                    <div class="add-inline" style="margin-top: 0.75rem;">
+                        <input type="text" id="newRole_${project.id}" placeholder="הוסף מקצוע חדש...">
+                        <button class="btn btn-primary btn-small" onclick="addRoleFromProject(${project.id})">+ הוסף</button>
+                    </div>
                 </div>
             </div>
         `;
@@ -2512,5 +2516,23 @@ async function submitQuickAdd(e) {
 
     closeModal('quickAddModal');
     await loadWorkLogs();
+    renderProjects();
+}
+
+// ========== הוספת מקצוע מעמודת פרויקט ==========
+function addRoleFromProject(projectId) {
+    var input = document.getElementById('newRole_' + projectId);
+    var role = input.value.trim();
+    if (!role) return;
+
+    if (data.workerTypes.includes(role)) {
+        showToast('מקצוע "' + role + '" כבר קיים', 'error');
+        return;
+    }
+
+    data.workerTypes.push(role);
+    saveData();
+    input.value = '';
+    showToast('מקצוע "' + role + '" נוסף בהצלחה', 'success');
     renderProjects();
 }
