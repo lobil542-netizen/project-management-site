@@ -1603,18 +1603,16 @@ function onWorkLogProjectChange() {
     const roleSelect = document.getElementById('wlRole');
     const roles = new Set();
 
+    // תמיד הצג את כל המקצועות
+    data.workerTypes.forEach(r => roles.add(r));
+
+    // הוסף גם מקצועות מנוכחות ומעובדים
     if (project) {
         supabaseAttendance.filter(e => e.project === project)
             .forEach(e => { if (e.role) roles.add(e.role); });
         wlWorkersCache.forEach(w => {
-            if (w.project === project || !w.project) {
-                if (w.role) roles.add(w.role);
-            }
+            if (w.role) roles.add(w.role);
         });
-    }
-
-    if (roles.size === 0) {
-        data.workerTypes.forEach(r => roles.add(r));
     }
 
     const rolesArr = Array.from(roles).sort();
