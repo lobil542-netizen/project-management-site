@@ -866,7 +866,7 @@ body {
 
 .stage-row {
     display: grid;
-    grid-template-columns: 200px 1fr 150px;
+    grid-template-columns: 200px 1fr 120px 36px;
     align-items: center;
     gap: 1rem;
     padding: 0.5rem 0.75rem;
@@ -875,11 +875,44 @@ body {
     font-size: 0.85rem;
 }
 
+.btn-budget-edit {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-hover);
+    color: var(--primary-light);
+    font-size: 1.2rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    padding: 0;
+    line-height: 1;
+}
+
+.btn-budget-edit:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
 .stage-name {
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.stage-name-clickable {
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.stage-name-clickable:hover {
+    color: var(--primary-light);
 }
 
 .stage-bar-container {

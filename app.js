@@ -938,6 +938,142 @@ function updateLogFilters() {
     }
 }
 
+// ========== תקציב שעות לפי מקצוע ==========
+function getRoleBudgets(projectName) {
+    const key = 'roleBudgets_' + projectName;
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : {};
+}
+
+function setRoleBudget(projectName, role, hours) {
+    const key = 'roleBudgets_' + projectName;
+    const budgets = getRoleBudgets(projectName);
+    if (hours > 0) {
+        budgets[role] = hours;
+    } else {
+        delete budgets[role];
+    }
+    localStorage.setItem(key, JSON.stringify(budgets));
+}
+
+function editRoleBudget(projectName, role) {
+    const budgets = getRoleBudgets(projectName);
+    const current = budgets[role] || '';
+    const input = prompt('הגדר תקציב שעות עבור ' + role + ':', current);
+    if (input === null) return;
+    const hours = parseFloat(input);
+    if (isNaN(hours) || hours < 0) {
+        showToast('יש להזין מספר חיובי', 'error');
+        return;
+    }
+    setRoleBudget(projectName, role, hours);
+    renderProjects();
+    showToast(hours > 0 ? 'תקציב עודכן: ' + hours + ' שעות' : 'תקציב הוסר', 'success');
+}
+
+// ========== חלונית מקצוע ==========
+function openRoleModal(projectName, role) {
+    const roleBudgets = getRoleBudgets(projectName);
+    const budget = roleBudgets[role] || 0;
+    const hasBudget = budget > 0;
+
+    // Calculate actual hours for this role in this project
+    const projAttendance = supabaseAttendance.filter(e => e.project === projectName);
+    const checkins = projAttendance.filter(e => e.type === 'checkin' && e.role === role);
+    const checkouts = projAttendance.filter(e => e.type === 'checkout' && e.role === role);
+
+    let totalHours = 0;
+    const workerDetails = {};
+
+    checkins.forEach(ci => {
+        const co = checkouts.find(c => c.worker_id === ci.worker_id && c.date === ci.date);
+        if (co) {
+            const hours = (new Date(co.time) - new Date(ci.time)) / (1000 * 60 * 60);
+            if (hours > 0 && hours < 24) {
+                totalHours += hours;
+                if (!workerDetails[ci.worker_id]) {
+                    workerDetails[ci.worker_id] = { name: ci.full_name, hours: 0, days: 0 };
+                }
+                workerDetails[ci.worker_id].hours += hours;
+                workerDetails[ci.worker_id].days += 1;
+            }
+        }
+    });
+
+    const workers = Object.values(workerDetails).sort((a, b) => b.hours - a.hours);
+    const percent = hasBudget ? Math.min((totalHours / budget) * 100, 100) : 0;
+    const isOver = hasBudget && totalHours > budget;
+    const barColor = isOver ? 'var(--danger)' : 'var(--primary)';
+    const escapedName = projectName.replace(/'/g, "\\'");
+    const escapedRole = role.replace(/'/g, "\\'");
+
+    let modal = document.getElementById('roleModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'roleModal';
+        modal.className = 'modal hidden';
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+        <div class="modal-overlay" onclick="closeModal('roleModal')"></div>
+        <div class="modal-content" style="max-width: 550px;">
+            <div class="modal-header">
+                <h3>${role}</h3>
+                <button class="close-btn" onclick="closeModal('roleModal')">&times;</button>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-bottom: 1.2rem;">
+                <div style="flex:1; background: var(--bg-input); border-radius: var(--radius-sm); padding: 1rem; text-align: center;">
+                    <div style="font-size: 1.6rem; font-weight: 800; color: var(--primary-light);">${totalHours.toFixed(1)}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">שעות בפועל</div>
+                </div>
+                <div style="flex:1; background: var(--bg-input); border-radius: var(--radius-sm); padding: 1rem; text-align: center;">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        <span style="font-size: 1.6rem; font-weight: 800; color: ${isOver ? 'var(--danger)' : 'var(--text-primary)'};">${hasBudget ? budget : '—'}</span>
+                        <button class="btn-budget-edit" onclick="editRoleBudget('${escapedName}', '${escapedRole}'); openRoleModal('${escapedName}', '${escapedRole}');" title="שנה תקציב">+</button>
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">תקציב שעות</div>
+                </div>
+                <div style="flex:1; background: var(--bg-input); border-radius: var(--radius-sm); padding: 1rem; text-align: center;">
+                    <div style="font-size: 1.6rem; font-weight: 800;">${workers.length}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">עובדים</div>
+                </div>
+            </div>
+
+            ${hasBudget ? `
+            <div style="margin-bottom: 1.2rem;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem;">
+                    <span>${totalHours.toFixed(1)} / ${budget}</span>
+                    <span>${percent.toFixed(0)}%</span>
+                </div>
+                <div class="stage-bar-container" style="height: 10px;">
+                    <div class="stage-bar" style="width: ${percent}%; background: ${barColor};"></div>
+                </div>
+                ${isOver ? '<div style="color: var(--danger); font-size: 0.85rem; font-weight: 700; margin-top: 0.4rem;">חריגה בתקציב שעות!</div>' : ''}
+            </div>
+            ` : ''}
+
+            ${workers.length > 0 ? `
+            <div style="border-top: 1px solid var(--border); padding-top: 1rem;">
+                <h4 style="font-size: 0.95rem; margin-bottom: 0.75rem; color: var(--text-secondary);">עובדים במקצוע</h4>
+                ${workers.map(w => `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.75rem; background: var(--bg-input); border-radius: var(--radius-sm); margin-bottom: 0.4rem;">
+                        <div>
+                            <strong style="font-size: 0.9rem;">${w.name}</strong>
+                            <span style="font-size: 0.75rem; color: var(--text-muted); margin-right: 0.5rem;">${w.days} ימים</span>
+                        </div>
+                        <span style="font-weight: 700; font-size: 0.9rem; color: var(--primary-light);">${w.hours.toFixed(1)} שעות</span>
+                    </div>
+                `).join('')}
+            </div>
+            ` : '<div class="empty-state">אין עובדים רשומים במקצוע זה</div>'}
+        </div>
+    `;
+
+    modal.classList.remove('hidden');
+}
+
 // ========== רינדור פרויקטים ==========
 function getRoleHours() {
     const roleHours = {};
@@ -1009,23 +1145,28 @@ async function renderProjects() {
             return !projCheckouts.some(co => co.worker_id === ci.worker_id && co.date === today);
         }).length;
 
+        const roleBudgets = getRoleBudgets(project.name);
+
         const rolesHtml = data.workerTypes.map(role => {
             const hours = roleHours[role] || 0;
-            const percent = Math.min((hours / budget) * 100, 100);
-            const isOver = hours > budget;
+            const roleBudget = roleBudgets[role] || 0;
+            const hasBudget = roleBudget > 0;
+            const percent = hasBudget ? Math.min((hours / roleBudget) * 100, 100) : 0;
+            const isOver = hasBudget && hours > roleBudget;
             const barColor = isOver ? 'var(--danger)' : 'var(--primary)';
-            const textColor = isOver ? 'color: var(--danger); font-weight: 700;' : '';
+            const escapedName = project.name.replace(/'/g, "\\'");
+            const escapedRole = role.replace(/'/g, "\\'");
 
             return `
                 <div class="stage-row">
-                    <div class="stage-name">${role}</div>
+                    <div class="stage-name stage-name-clickable" onclick="openRoleModal('${escapedName}', '${escapedRole}')">${role}</div>
                     <div class="stage-bar-container">
-                        <div class="stage-bar" style="width: ${percent}%; background: ${barColor};"></div>
+                        ${hasBudget ? `<div class="stage-bar" style="width: ${percent}%; background: ${barColor};"></div>` : ''}
                     </div>
-                    <div class="stage-hours" style="${textColor}">
-                        ${hours.toFixed(1)} / ${budget}
-                        ${isOver ? ' <span class="stage-over">חריגה!</span>' : ''}
+                    <div class="stage-hours">
+                        ${hasBudget ? `<span ${isOver ? 'style="color: var(--danger); font-weight: 700;"' : ''}>${hours.toFixed(1)} / ${roleBudget}${isOver ? ' <span class="stage-over">חריגה!</span>' : ''}</span>` : '—'}
                     </div>
+                    <button class="btn-budget-edit" onclick="event.stopPropagation(); editRoleBudget('${escapedName}', '${escapedRole}')" title="הגדר תקציב שעות">+</button>
                 </div>
             `;
         }).join('');
@@ -1065,7 +1206,7 @@ async function renderProjects() {
                     </div>
                 </div>
                 <div class="stages-budget-section">
-                    <h4 class="stages-budget-title">שעות בפועל לפי מקצוע (${budget} שעות לכל מקצוע)</h4>
+                    <h4 class="stages-budget-title">שעות בפועל לפי מקצוע</h4>
                     <div class="stages-budget-list">
                         ${rolesHtml}
                     </div>
