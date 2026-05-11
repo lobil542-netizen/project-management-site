@@ -1106,6 +1106,9 @@ async function renderProjects() {
     const container = document.getElementById('projectsList');
     const budget = data.stageBudgetHours || 250;
 
+    // טען יומני עבודה לסינכרון
+    await loadWorkLogs();
+
     let projects = [];
     try {
         projects = await supabaseSelectAll('projects');
@@ -1138,6 +1141,19 @@ async function renderProjects() {
                 }
             }
         });
+
+        // הוסף שעות מיומן עבודה
+        if (typeof workLogs !== 'undefined') {
+            workLogs.filter(function(wl) { return wl.project === project.name; })
+                .forEach(function(wl) {
+                    var r = wl.role || '';
+                    var h = parseFloat(wl.hours) || 0;
+                    if (r && h > 0) {
+                        if (roleHours[r] !== undefined) roleHours[r] += h;
+                        else roleHours[r] = h;
+                    }
+                });
+        }
 
         const totalHours = Object.values(roleHours).reduce((s, h) => s + h, 0);
         const totalWorkers = new Set(projAttendance.map(e => e.worker_id)).size;
