@@ -1297,3 +1297,90 @@ body {
         font-size: 1rem;
     }
 }
+
+/* ========== יומן עבודה ========== */
+.worklog-layout {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 1.5rem;
+}
+
+@media (max-width: 900px) {
+    .worklog-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.worklog-form-card .card-body {
+    padding: 1.5rem;
+}
+
+.form-row {
+    display: flex;
+    gap: 1rem;
+}
+
+@media (max-width: 600px) {
+    .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+}
+
+.status-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.status-btn {
+    flex: 1;
+    padding: 0.6rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.status-btn:hover {
+    background: var(--bg-hover);
+}
+
+.status-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.status-btn[data-status="תקוע"].active {
+    background: var(--danger, #ef4444);
+    border-color: var(--danger, #ef4444);
+}
+
+.status-btn[data-status="חלקי"].active {
+    background: var(--warning, #f59e0b);
+    border-color: var(--warning, #f59e0b);
+}
+
+.status-btn[data-status="מתקדם"].active {
+    background: var(--success, #22c55e);
+    border-color: var(--success, #22c55e);
+}
+
+.badge-stuck {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+.badge-partial {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+}
+
+.worklog-history-card .filter-bar {
+    display: flex;
+    gap: 0.5rem;
+}

@@ -150,6 +150,7 @@ function showTab(tabName) {
     if (tabName === 'hours') renderHours();
     if (tabName === 'projects') renderProjects();
     if (tabName === 'manage') renderManage();
+    if (tabName === 'worklog') renderWorkLog();
     if (tabName === 'overview') renderOverview();
 }
 
@@ -1542,3 +1543,171 @@ document.addEventListener('DOMContentLoaded', () => {
         dateInput.value = new Date().toISOString().slice(0, 10);
     }
 });
+
+// ========== יומן עבודה ==========
+let workLogs = [];
+
+async function loadWorkLogs() {
+    try {
+        workLogs = await supabaseSelectAll('work_logs') || [];
+    } catch (e) {
+        // Fallback to localStorage
+        workLogs = JSON.parse(localStorage.getItem('workLogs') || '[]');
+    }
+}
+
+async function renderWorkLog() {
+    await loadWorkLogs();
+
+    // Set today's date
+    const dateInput = document.getElementById('wlDate');
+    if (dateInput && !dateInput.value) {
+        dateInput.value = new Date().toISOString().slice(0, 10);
+    }
+
+    // Populate project dropdown
+    const projSelect = document.getElementById('wlProject');
+    try {
+        const projects = await supabaseSelectAll('projects');
+        projSelect.innerHTML = '<option value="">בחר פרויקט</option>' +
+            (projects || []).filter(p => p.active).map(p =>
+                `<option value="${p.name}">${p.name}</option>`
+            ).join('');
+    } catch (e) {
+        projSelect.innerHTML = '<option value="">בחר פרויקט</option>' +
+            data.projects.filter(p => p.active).map(p =>
+                `<option value="${p.name}">${p.name}</option>`
+            ).join('');
+    }
+
+    // Populate worker dropdown
+    const workerSelect = document.getElementById('wlWorker');
+    try {
+        const workers = await supabaseSelectAll('workers');
+        workerSelect.innerHTML = '<option value="">בחר עובד</option>' +
+            (workers || []).map(w =>
+                `<option value="${w.full_name}">${w.full_name}</option>`
+            ).join('');
+    } catch (e) {
+        workerSelect.innerHTML = '<option value="">בחר עובד</option>' +
+            data.workers.map(w =>
+                `<option value="${w.name}">${w.name}</option>`
+            ).join('');
+    }
+
+    updateWorkLogTasks();
+    renderWorkLogHistory();
+}
+
+function updateWorkLogTasks() {
+    const taskSelect = document.getElementById('wlTask');
+    taskSelect.innerHTML = '<option value="">בחר משימה</option>' +
+        data.workStages.map(s => `<option value="${s}">${s}</option>`).join('');
+}
+
+function selectWorkLogStatus(btn) {
+    document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('wlStatus').value = btn.dataset.status;
+}
+
+async function submitWorkLog(e) {
+    e.preventDefault();
+
+    const entry = {
+        date: document.getElementById('wlDate').value,
+        project: document.getElementById('wlProject').value,
+        task: document.getElementById('wlTask').value,
+        hours: parseFloat(document.getElementById('wlHours').value),
+        worker: document.getElementById('wlWorker').value || 'לא צוין',
+        status: document.getElementById('wlStatus').value,
+        note: document.getElementById('wlNote').value || '',
+        created_at: new Date().toISOString()
+    };
+
+    try {
+        await supabaseInsert('work_logs', entry);
+        showToast('הדיווח נשמר בהצלחה!', 'success');
+    } catch (e) {
+        // Fallback to localStorage
+        const logs = JSON.parse(localStorage.getItem('workLogs') || '[]');
+        entry.id = Date.now();
+        logs.push(entry);
+        localStorage.setItem('workLogs', JSON.stringify(logs));
+        showToast('הדיווח נשמר (מקומית)', 'success');
+    }
+
+    // Reset form
+    document.getElementById('wlHours').value = '';
+    document.getElementById('wlNote').value = '';
+
+    await loadWorkLogs();
+    renderWorkLogHistory();
+}
+
+async function renderWorkLogHistory() {
+    const filterProject = document.getElementById('wlFilterProject')?.value || '';
+    const filterDate = document.getElementById('wlFilterDate')?.value || '';
+
+    // Update filter project dropdown
+    const filterProjSelect = document.getElementById('wlFilterProject');
+    if (filterProjSelect && filterProjSelect.options.length <= 1) {
+        try {
+            const projects = await supabaseSelectAll('projects');
+            filterProjSelect.innerHTML = '<option value="">כל הפרויקטים</option>' +
+                (projects || []).map(p => `<option value="${p.name}" ${p.name === filterProject ? 'selected' : ''}>${p.name}</option>`).join('');
+        } catch (e) {
+            filterProjSelect.innerHTML = '<option value="">כל הפרויקטים</option>' +
+                data.projects.map(p => `<option value="${p.name}" ${p.name === filterProject ? 'selected' : ''}>${p.name}</option>`).join('');
+        }
+    }
+
+    let filtered = [...workLogs].sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
+
+    if (filterProject) {
+        filtered = filtered.filter(l => l.project === filterProject);
+    }
+    if (filterDate) {
+        filtered = filtered.filter(l => l.date === filterDate);
+    }
+
+    const tbody = document.getElementById('workLogTableBody');
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-state">אין דיווחים</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(log => {
+        const statusClass = log.status === 'תקוע' ? 'badge-stuck' :
+                           log.status === 'חלקי' ? 'badge-partial' : 'badge-active';
+        const dateDisplay = log.date ? new Date(log.date).toLocaleDateString('he-IL') : '-';
+        return `
+        <tr>
+            <td>${dateDisplay}</td>
+            <td><strong>${log.project || '-'}</strong></td>
+            <td>${log.task || '-'}</td>
+            <td><strong>${log.hours || 0}</strong></td>
+            <td>${log.worker || '-'}</td>
+            <td><span class="badge ${statusClass}">${log.status || '-'}</span></td>
+            <td style="max-width:150px; overflow:hidden; text-overflow:ellipsis;" title="${log.note || ''}">${log.note || '-'}</td>
+            <td><button class="btn-delete" onclick="deleteWorkLog(${log.id})" title="מחק">🗑</button></td>
+        </tr>`;
+    }).join('');
+}
+
+async function deleteWorkLog(id) {
+    if (!verifyAdminPassword()) return;
+    if (!confirm('למחוק דיווח זה?')) return;
+    try {
+        await supabaseDelete('work_logs', id);
+        showToast('הדיווח נמחק', 'info');
+    } catch (e) {
+        const logs = JSON.parse(localStorage.getItem('workLogs') || '[]');
+        const updated = logs.filter(l => l.id !== id);
+        localStorage.setItem('workLogs', JSON.stringify(updated));
+        showToast('הדיווח נמחק (מקומית)', 'info');
+    }
+    await loadWorkLogs();
+    renderWorkLogHistory();
+}
