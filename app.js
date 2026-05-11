@@ -1279,12 +1279,17 @@ async function deleteProject(id) {
 function renderManage() {
     // Worker types
     const typesList = document.getElementById('workerTypesList');
-    typesList.innerHTML = data.workerTypes.map(type => `
-        <span class="tag">
-            ${type}
-            <button class="remove-tag" onclick="removeWorkerType('${type}')">&times;</button>
-        </span>
-    `).join('');
+    typesList.innerHTML = data.workerTypes.map(function(type) {
+        return '<span class="tag">' + type + '<button class="remove-tag" onclick="removeWorkerType(\'' + type + '\')">&times;</button></span>';
+    }).join('');
+
+    // Work stages / tasks
+    const stagesList = document.getElementById('workStagesList');
+    if (stagesList) {
+        stagesList.innerHTML = data.workStages.map(function(stage) {
+            return '<span class="tag">' + stage + '<button class="remove-tag" onclick="removeWorkStage(\'' + stage + '\')">&times;</button></span>';
+        }).join('');
+    }
 }
 
 function addWorkerType() {
@@ -1869,4 +1874,30 @@ function exportWorkLogPDF() {
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => printWindow.print(), 500);
+}
+
+// ========== ניהול משימות ==========
+function addWorkStage() {
+    const input = document.getElementById('newWorkStage');
+    const stage = input.value.trim();
+    if (!stage) return;
+
+    if (data.workStages.includes(stage)) {
+        showToast('משימה כבר קיימת', 'error');
+        return;
+    }
+
+    data.workStages.push(stage);
+    saveData();
+    input.value = '';
+    renderManage();
+    showToast('משימה "' + stage + '" נוספה', 'success');
+}
+
+function removeWorkStage(stage) {
+    if (!confirm('למחוק את המשימה "' + stage + '"?')) return;
+    data.workStages = data.workStages.filter(function(s) { return s !== stage; });
+    saveData();
+    renderManage();
+    showToast('משימה "' + stage + '" הוסרה', 'info');
 }
