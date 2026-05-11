@@ -1546,12 +1546,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ========== יומן עבודה ==========
 let workLogs = [];
+let wlProjectsCache = [];
+let wlWorkersCache = [];
 
 async function loadWorkLogs() {
     try {
         workLogs = await supabaseSelectAll('work_logs') || [];
     } catch (e) {
-        // Fallback to localStorage
         workLogs = JSON.parse(localStorage.getItem('workLogs') || '[]');
     }
 }
@@ -1559,50 +1560,112 @@ async function loadWorkLogs() {
 async function renderWorkLog() {
     await loadWorkLogs();
 
-    // Set today's date
     const dateInput = document.getElementById('wlDate');
     if (dateInput && !dateInput.value) {
         dateInput.value = new Date().toISOString().slice(0, 10);
     }
 
-    // Populate project dropdown
+    try {
+        wlProjectsCache = await supabaseSelectAll('projects') || [];
+    } catch (e) {
+        wlProjectsCache = data.projects;
+    }
+
     const projSelect = document.getElementById('wlProject');
+    projSelect.innerHTML = '<option value="">בחר פרויקט</option>' +
+        wlProjectsCache.filter(p => p.active).map(p =>
+            '<option value="' + p.name + '">' + p.name + '</option>'
+        ).join('');
+
     try {
-        const projects = await supabaseSelectAll('projects');
-        projSelect.innerHTML = '<option value="">בחר פרויקט</option>' +
-            (projects || []).filter(p => p.active).map(p =>
-                `<option value="${p.name}">${p.name}</option>`
-            ).join('');
+        wlWorkersCache = await supabaseSelectAll('workers') || [];
     } catch (e) {
-        projSelect.innerHTML = '<option value="">בחר פרויקט</option>' +
-            data.projects.filter(p => p.active).map(p =>
-                `<option value="${p.name}">${p.name}</option>`
-            ).join('');
+        wlWorkersCache = data.workers.map(w => ({ full_name: w.name, role: w.type, project: '' }));
     }
 
-    // Populate worker dropdown
-    const workerSelect = document.getElementById('wlWorker');
-    try {
-        const workers = await supabaseSelectAll('workers');
-        workerSelect.innerHTML = '<option value="">בחר עובד</option>' +
-            (workers || []).map(w =>
-                `<option value="${w.full_name}">${w.full_name}</option>`
-            ).join('');
-    } catch (e) {
-        workerSelect.innerHTML = '<option value="">בחר עובד</option>' +
-            data.workers.map(w =>
-                `<option value="${w.name}">${w.name}</option>`
-            ).join('');
-    }
-
-    updateWorkLogTasks();
     renderWorkLogHistory();
 }
 
+// כשבוחרים פרויקט - מסננים מקצועות ועובדים
+function onWorkLogProjectChange() {
+    const project = document.getElementById('wlProject').value;
+    const roleSelect = document.getElementById('wlRole');
+    const roles = new Set();
+
+    if (project) {
+        supabaseAttendance.filter(e => e.project === project)
+            .forEach(e => { if (e.role) roles.add(e.role); });
+        wlWorkersCache.forEach(w => {
+            if (w.project === project || !w.project) {
+                if (w.role) roles.add(w.role);
+            }
+        });
+    }
+
+    if (roles.size === 0) {
+        data.workerTypes.forEach(r => roles.add(r));
+    }
+
+    const rolesArr = Array.from(roles).sort();
+    roleSelect.innerHTML = '<option value="">בחר מקצוע</option>' +
+        rolesArr.map(r => '<option value="' + r + '">' + r + '</option>').join('');
+
+    onWorkLogRoleChange();
+}
+
+// כשבוחרים מקצוע - מסננים עובדים ומשימות
+function onWorkLogRoleChange() {
+    const project = document.getElementById('wlProject').value;
+    const role = document.getElementById('wlRole').value;
+    const workerSelect = document.getElementById('wlWorker');
+    let filteredWorkers = wlWorkersCache.slice();
+
+    if (role) {
+        filteredWorkers = filteredWorkers.filter(w => w.role === role);
+    }
+
+    if (project) {
+        const projWorkerNames = new Set();
+        supabaseAttendance
+            .filter(e => e.project === project && (!role || e.role === role))
+            .forEach(e => projWorkerNames.add(e.full_name));
+        filteredWorkers.forEach(w => projWorkerNames.add(w.full_name));
+
+        const namesArr = Array.from(projWorkerNames).sort();
+        workerSelect.innerHTML = '<option value="">בחר עובד</option>' +
+            namesArr.map(n => '<option value="' + n + '">' + n + '</option>').join('');
+    } else {
+        workerSelect.innerHTML = '<option value="">בחר עובד</option>' +
+            filteredWorkers.map(w => '<option value="' + w.full_name + '">' + w.full_name + '</option>').join('');
+    }
+
+    updateWorkLogTasks();
+}
+
 function updateWorkLogTasks() {
+    const role = (document.getElementById('wlRole') || {}).value || '';
     const taskSelect = document.getElementById('wlTask');
+
+    const roleTaskMap = {
+        'טפסן': ['תפסנות', 'תבניות', 'ממ"ד', 'תיקרה'],
+        'ברזלן': ['ברזל רצפה', 'ברזל קירות ועמודים', 'ברזל', 'בדיקת ברזל קונסטרוקטור', 'הזמנת ברזל'],
+        'בטונאי': ['בטון רזה', 'יציקת בטון ברצפה'],
+        'אינסטלטור': ['אינסטלטור'],
+        'חשמלאי': ['חשמלאי'],
+        'מיזוג': ['מיזוג', 'מערכות נוספות'],
+        'מודד': ['מודד', 'ישור השטח לגובה'],
+        'מנהל עבודה': ['מנהל עבודה', 'בקרת איכות'],
+        'מנהל פרויקט': ['מנהל פרויקט', 'בקרת איכות'],
+        'מהנדס': ['מהנדס', 'בדיקת ברזל קונסטרוקטור', 'בקרת איכות'],
+        'מפעיל מנוף': ['מנופים'],
+        'מפעיל טרקטור': ['חפירה טרקטור', 'הכנת שטח', 'ישור השטח לגובה'],
+        'משאבות בטון': ['משאבות בטון', 'יציקת בטון ברצפה'],
+        'עובד כללי': ['הכנת שטח', 'קלקר', 'ניילון', 'יישור קוצים', 'איטום', 'ציוד', 'חומרי גלם', 'כלים']
+    };
+
+    const tasks = (role && roleTaskMap[role]) ? roleTaskMap[role] : data.workStages;
     taskSelect.innerHTML = '<option value="">בחר משימה</option>' +
-        data.workStages.map(s => `<option value="${s}">${s}</option>`).join('');
+        tasks.map(s => '<option value="' + s + '">' + s + '</option>').join('');
 }
 
 function selectWorkLogStatus(btn) {
@@ -1611,25 +1674,68 @@ function selectWorkLogStatus(btn) {
     document.getElementById('wlStatus').value = btn.dataset.status;
 }
 
+// ========== תמונות ==========
+function previewWorkLogImages(input) {
+    const preview = document.getElementById('wlImagePreview');
+    preview.innerHTML = '';
+    Array.from(input.files).forEach((file, i) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const div = document.createElement('div');
+            div.className = 'image-preview-item';
+            div.innerHTML = '<img src="' + e.target.result + '" alt="img"><button type="button" class="image-remove-btn" onclick="removeWorkLogImage(' + i + ')">&times;</button>';
+            preview.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function removeWorkLogImage(index) {
+    const input = document.getElementById('wlImages');
+    const dt = new DataTransfer();
+    Array.from(input.files).forEach((file, i) => {
+        if (i !== index) dt.items.add(file);
+    });
+    input.files = dt.files;
+    previewWorkLogImages(input);
+}
+
+function fileToBase64(file) {
+    return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+    });
+}
+
+// ========== שמירת דיווח ==========
 async function submitWorkLog(e) {
     e.preventDefault();
+
+    const imageFiles = document.getElementById('wlImages').files;
+    const images = [];
+    for (let i = 0; i < imageFiles.length; i++) {
+        const base64 = await fileToBase64(imageFiles[i]);
+        images.push({ name: imageFiles[i].name, data: base64 });
+    }
 
     const entry = {
         date: document.getElementById('wlDate').value,
         project: document.getElementById('wlProject').value,
+        role: document.getElementById('wlRole').value,
         task: document.getElementById('wlTask').value,
         hours: parseFloat(document.getElementById('wlHours').value),
         worker: document.getElementById('wlWorker').value || 'לא צוין',
         status: document.getElementById('wlStatus').value,
         note: document.getElementById('wlNote').value || '',
+        images: JSON.stringify(images),
         created_at: new Date().toISOString()
     };
 
     try {
         await supabaseInsert('work_logs', entry);
         showToast('הדיווח נשמר בהצלחה!', 'success');
-    } catch (e) {
-        // Fallback to localStorage
+    } catch (err) {
         const logs = JSON.parse(localStorage.getItem('workLogs') || '[]');
         entry.id = Date.now();
         logs.push(entry);
@@ -1637,62 +1743,57 @@ async function submitWorkLog(e) {
         showToast('הדיווח נשמר (מקומית)', 'success');
     }
 
-    // Reset form
     document.getElementById('wlHours').value = '';
     document.getElementById('wlNote').value = '';
+    document.getElementById('wlImages').value = '';
+    document.getElementById('wlImagePreview').innerHTML = '';
 
     await loadWorkLogs();
     renderWorkLogHistory();
 }
 
+// ========== היסטוריית דיווחים ==========
 async function renderWorkLogHistory() {
-    const filterProject = document.getElementById('wlFilterProject')?.value || '';
-    const filterDate = document.getElementById('wlFilterDate')?.value || '';
+    const filterProject = (document.getElementById('wlFilterProject') || {}).value || '';
+    const filterDate = (document.getElementById('wlFilterDate') || {}).value || '';
 
-    // Update filter project dropdown
     const filterProjSelect = document.getElementById('wlFilterProject');
     if (filterProjSelect && filterProjSelect.options.length <= 1) {
-        try {
-            const projects = await supabaseSelectAll('projects');
-            filterProjSelect.innerHTML = '<option value="">כל הפרויקטים</option>' +
-                (projects || []).map(p => `<option value="${p.name}" ${p.name === filterProject ? 'selected' : ''}>${p.name}</option>`).join('');
-        } catch (e) {
-            filterProjSelect.innerHTML = '<option value="">כל הפרויקטים</option>' +
-                data.projects.map(p => `<option value="${p.name}" ${p.name === filterProject ? 'selected' : ''}>${p.name}</option>`).join('');
-        }
+        filterProjSelect.innerHTML = '<option value="">כל הפרויקטים</option>' +
+            wlProjectsCache.map(p =>
+                '<option value="' + p.name + '"' + (p.name === filterProject ? ' selected' : '') + '>' + p.name + '</option>'
+            ).join('');
     }
 
-    let filtered = [...workLogs].sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
+    let filtered = workLogs.slice().sort((a, b) =>
+        new Date(b.created_at || b.date) - new Date(a.created_at || a.date)
+    );
 
-    if (filterProject) {
-        filtered = filtered.filter(l => l.project === filterProject);
-    }
-    if (filterDate) {
-        filtered = filtered.filter(l => l.date === filterDate);
-    }
+    if (filterProject) filtered = filtered.filter(l => l.project === filterProject);
+    if (filterDate) filtered = filtered.filter(l => l.date === filterDate);
 
     const tbody = document.getElementById('workLogTableBody');
-
     if (filtered.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" class="empty-state">אין דיווחים</td></tr>';
         return;
     }
 
     tbody.innerHTML = filtered.map(log => {
-        const statusClass = log.status === 'תקוע' ? 'badge-stuck' :
-                           log.status === 'חלקי' ? 'badge-partial' : 'badge-active';
+        const statusClass = log.status === 'תקוע' ? 'badge-stuck' : log.status === 'חלקי' ? 'badge-partial' : 'badge-active';
         const dateDisplay = log.date ? new Date(log.date).toLocaleDateString('he-IL') : '-';
-        return `
-        <tr>
-            <td>${dateDisplay}</td>
-            <td><strong>${log.project || '-'}</strong></td>
-            <td>${log.task || '-'}</td>
-            <td><strong>${log.hours || 0}</strong></td>
-            <td>${log.worker || '-'}</td>
-            <td><span class="badge ${statusClass}">${log.status || '-'}</span></td>
-            <td style="max-width:150px; overflow:hidden; text-overflow:ellipsis;" title="${log.note || ''}">${log.note || '-'}</td>
-            <td><button class="btn-delete" onclick="deleteWorkLog(${log.id})" title="מחק">🗑</button></td>
-        </tr>`;
+        let hasImages = false;
+        try { hasImages = log.images && JSON.parse(log.images).length > 0; } catch(e) {}
+
+        return '<tr>' +
+            '<td>' + dateDisplay + '</td>' +
+            '<td><strong>' + (log.project || '-') + '</strong></td>' +
+            '<td>' + (log.task || '-') + '<br><small style="color:var(--text-muted)">' + (log.role || '') + '</small></td>' +
+            '<td><strong>' + (log.hours || 0) + '</strong></td>' +
+            '<td>' + (log.worker || '-') + '</td>' +
+            '<td><span class="badge ' + statusClass + '">' + (log.status || '-') + '</span></td>' +
+            '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;">' + (log.note || '-') + (hasImages ? ' 📷' : '') + '</td>' +
+            '<td><button class="btn-delete" onclick="deleteWorkLog(' + log.id + ')" title="מחק">🗑</button></td>' +
+            '</tr>';
     }).join('');
 }
 
@@ -1702,12 +1803,70 @@ async function deleteWorkLog(id) {
     try {
         await supabaseDelete('work_logs', id);
         showToast('הדיווח נמחק', 'info');
-    } catch (e) {
+    } catch (err) {
         const logs = JSON.parse(localStorage.getItem('workLogs') || '[]');
-        const updated = logs.filter(l => l.id !== id);
-        localStorage.setItem('workLogs', JSON.stringify(updated));
-        showToast('הדיווח נמחק (מקומית)', 'info');
+        localStorage.setItem('workLogs', JSON.stringify(logs.filter(l => l.id !== id)));
+        showToast('הדיווח נמחק', 'info');
     }
     await loadWorkLogs();
     renderWorkLogHistory();
+}
+
+// ========== ייצוא PDF ==========
+function exportWorkLogPDF() {
+    const filterProject = (document.getElementById('wlFilterProject') || {}).value || '';
+    const filterDate = (document.getElementById('wlFilterDate') || {}).value || '';
+
+    let filtered = workLogs.slice().sort((a, b) =>
+        new Date(b.created_at || b.date) - new Date(a.created_at || a.date)
+    );
+    if (filterProject) filtered = filtered.filter(l => l.project === filterProject);
+    if (filterDate) filtered = filtered.filter(l => l.date === filterDate);
+
+    if (filtered.length === 0) {
+        showToast('אין דיווחים לייצוא', 'error');
+        return;
+    }
+
+    const title = filterProject ? 'דוח יומן עבודה - ' + filterProject : 'דוח יומן עבודה';
+    const dateStr = new Date().toLocaleDateString('he-IL');
+    const totalHours = filtered.reduce((sum, l) => sum + (l.hours || 0), 0);
+    const workerCount = new Set(filtered.map(l => l.worker)).size;
+
+    const rows = filtered.map(log => {
+        const dateDisplay = log.date ? new Date(log.date).toLocaleDateString('he-IL') : '-';
+        const sc = log.status === 'תקוע' ? 'status-stuck' : log.status === 'חלקי' ? 'status-partial' : 'status-advanced';
+        return '<tr><td>' + dateDisplay + '</td><td>' + (log.project||'-') + '</td><td>' + (log.role||'-') + '</td><td>' + (log.task||'-') + '</td><td><strong>' + (log.hours||0) + '</strong></td><td>' + (log.worker||'-') + '</td><td class="' + sc + '">' + (log.status||'-') + '</td><td>' + (log.note||'-') + '</td></tr>';
+    }).join('');
+
+    const html = '<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>' + title + '</title>' +
+        '<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Tahoma,Arial,sans-serif;padding:30px;direction:rtl}' +
+        '.header{text-align:center;margin-bottom:25px;border-bottom:3px solid #1e3a5f;padding-bottom:15px}' +
+        '.header h1{font-size:22px;color:#1e3a5f}.header h2{font-size:18px;color:#333;margin-top:5px}' +
+        '.header p{color:#666;font-size:13px;margin-top:5px}' +
+        '.summary{display:flex;gap:20px;margin-bottom:20px}' +
+        '.summary-item{flex:1;background:#f0f4f8;padding:12px;border-radius:8px;text-align:center}' +
+        '.summary-item .num{font-size:24px;font-weight:800;color:#1e3a5f}' +
+        '.summary-item .label{font-size:12px;color:#666}' +
+        'table{width:100%;border-collapse:collapse;margin-bottom:20px}' +
+        'th{background:#1e3a5f;color:#fff;padding:10px 8px;font-size:13px}' +
+        'td{padding:8px;border-bottom:1px solid #ddd;font-size:12px}' +
+        'tr:nth-child(even){background:#f8f9fa}' +
+        '.status-stuck{color:#dc3545;font-weight:700}' +
+        '.status-partial{color:#fd7e14;font-weight:700}' +
+        '.status-advanced{color:#28a745;font-weight:700}' +
+        '.footer{text-align:center;color:#999;font-size:11px;margin-top:20px;border-top:1px solid #ddd;padding-top:10px}</style></head>' +
+        '<body><div class="header"><h1>SKELETON CONSTRUCTION</h1><h2>' + title + '</h2><p>תאריך הפקה: ' + dateStr + '</p></div>' +
+        '<div class="summary"><div class="summary-item"><div class="num">' + filtered.length + '</div><div class="label">דיווחים</div></div>' +
+        '<div class="summary-item"><div class="num">' + totalHours.toFixed(1) + '</div><div class="label">סה"כ שעות</div></div>' +
+        '<div class="summary-item"><div class="num">' + workerCount + '</div><div class="label">עובדים</div></div></div>' +
+        '<table><thead><tr><th>תאריך</th><th>פרויקט</th><th>מקצוע</th><th>משימה</th><th>שעות</th><th>מבצע</th><th>סטטוס</th><th>הערה</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody></table>' +
+        '<div class="footer">SKELETON CONSTRUCTION - מערכת פיקוח פרויקטים</div></body></html>';
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 500);
 }

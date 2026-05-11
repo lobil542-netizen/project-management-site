@@ -384,8 +384,14 @@
                                 </div>
                                 <div class="form-group">
                                     <label>פרויקט *</label>
-                                    <select id="wlProject" required onchange="updateWorkLogTasks()">
+                                    <select id="wlProject" required onchange="onWorkLogProjectChange()">
                                         <option value="">בחר פרויקט</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>מקצוע *</label>
+                                    <select id="wlRole" required onchange="onWorkLogRoleChange()">
+                                        <option value="">בחר מקצוע</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -419,6 +425,13 @@
                                     <label>הערה</label>
                                     <textarea id="wlNote" rows="3" placeholder="הערות נוספות..."></textarea>
                                 </div>
+                                <div class="form-group">
+                                    <label>תמונות</label>
+                                    <div class="image-upload-area">
+                                        <input type="file" id="wlImages" multiple accept="image/*" onchange="previewWorkLogImages(this)">
+                                        <div id="wlImagePreview" class="image-preview-grid"></div>
+                                    </div>
+                                </div>
                                 <button type="submit" class="btn btn-primary btn-large btn-full">שמור דיווח</button>
                             </form>
                         </div>
@@ -433,6 +446,7 @@
                                     <option value="">כל הפרויקטים</option>
                                 </select>
                                 <input type="date" id="wlFilterDate" onchange="renderWorkLogHistory()">
+                                <button class="btn btn-primary" onclick="exportWorkLogPDF()" style="padding: 0.5rem 1rem; font-size: 0.85rem;">📄 ייצוא PDF</button>
                             </div>
                         </div>
                         <div class="card-body">
