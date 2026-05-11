@@ -1868,3 +1868,26 @@ body {
     color: #ef4444 !important;
     font-weight: 800;
 }
+
+/* ========== כפתור דיווח מהיר ========== */
+.btn-quick-add {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--success, #22c55e);
+    background: transparent;
+    color: var(--success, #22c55e);
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    line-height: 1;
+}
+
+.btn-quick-add:hover {
+    background: var(--success, #22c55e);
+    color: white;
+}

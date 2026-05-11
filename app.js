@@ -1168,7 +1168,8 @@ async function renderProjects() {
                     <div class="stage-hours">
                         ${hasBudget ? `<span ${isOver ? 'style="color: var(--danger); font-weight: 700;"' : ''}>${hours.toFixed(1)} / ${roleBudget}${isOver ? ' <span class="stage-over">חריגה!</span>' : ''}</span>` : '—'}
                     </div>
-                    <button class="btn-budget-edit" onclick="event.stopPropagation(); editRoleBudget('${escapedName}', '${escapedRole}')" title="הגדר תקציב שעות">+</button>
+                    <button class="btn-quick-add" onclick="event.stopPropagation(); quickAddWorkLog('${escapedName}', '${escapedRole}')" title="הוסף דיווח שעות">+</button>
+                    <button class="btn-budget-edit" onclick="event.stopPropagation(); editRoleBudget('${escapedName}', '${escapedRole}')" title="הגדר תקציב שעות">⚙</button>
                 </div>
             `;
         }).join('');
@@ -2387,4 +2388,129 @@ async function renderAnalytics() {
         catHtml +
         attHtml +
         '</div>';
+}
+
+// ========== דיווח מהיר מעמודת פרויקט ==========
+function quickAddWorkLog(projectName, role) {
+    var modal = document.getElementById('quickAddModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'quickAddModal';
+        modal.className = 'modal hidden';
+        document.body.appendChild(modal);
+    }
+
+    var today = new Date().toISOString().slice(0, 10);
+
+    // Build worker options from attendance for this project+role
+    var workerNames = new Set();
+    supabaseAttendance
+        .filter(function(e) { return e.project === projectName && e.role === role; })
+        .forEach(function(e) { workerNames.add(e.full_name); });
+
+    if (workerNames.size === 0 && wlWorkersCache) {
+        wlWorkersCache
+            .filter(function(w) { return w.role === role; })
+            .forEach(function(w) { workerNames.add(w.full_name); });
+    }
+
+    var workerOptions = '<option value="">בחר עובד</option>' +
+        Array.from(workerNames).sort().map(function(n) {
+            return '<option value="' + n + '">' + n + '</option>';
+        }).join('');
+
+    // Build task options
+    var roleTaskMap = {
+        'טפסן': ['תפסנות', 'תבניות', 'ממ"ד', 'תיקרה'],
+        'ברזלן': ['ברזל רצפה', 'ברזל קירות ועמודים', 'ברזל', 'בדיקת ברזל קונסטרוקטור', 'הזמנת ברזל'],
+        'בטונאי': ['בטון רזה', 'יציקת בטון ברצפה'],
+        'אינסטלטור': ['אינסטלטור'],
+        'חשמלאי': ['חשמלאי'],
+        'מיזוג': ['מיזוג', 'מערכות נוספות'],
+        'מודד': ['מודד', 'ישור השטח לגובה'],
+        'מנהל עבודה': ['מנהל עבודה', 'בקרת איכות'],
+        'מנהל פרויקט': ['מנהל פרויקט', 'בקרת איכות'],
+        'מהנדס': ['מהנדס', 'בדיקת ברזל קונסטרוקטור', 'בקרת איכות'],
+        'מפעיל מנוף': ['מנופים'],
+        'מפעיל טרקטור': ['חפירה טרקטור', 'הכנת שטח', 'ישור השטח לגובה'],
+        'משאבות בטון': ['משאבות בטון', 'יציקת בטון ברצפה'],
+        'עובד כללי': ['הכנת שטח', 'קלקר', 'ניילון', 'יישור קוצים', 'איטום', 'ציוד', 'חומרי גלם', 'כלים']
+    };
+    var tasks = (roleTaskMap[role]) ? roleTaskMap[role] : data.workStages;
+    var taskOptions = '<option value="">בחר משימה</option>' +
+        tasks.map(function(t) { return '<option value="' + t + '">' + t + '</option>'; }).join('');
+
+    modal.innerHTML = '<div class="modal-overlay" onclick="closeModal(\'quickAddModal\')"></div>' +
+        '<div class="modal-content" style="max-width:450px;">' +
+        '<div class="modal-header">' +
+        '<h3>דיווח מהיר - ' + role + '</h3>' +
+        '<button class="close-btn" onclick="closeModal(\'quickAddModal\')">&times;</button>' +
+        '</div>' +
+        '<form onsubmit="submitQuickAdd(event)">' +
+        '<input type="hidden" id="qaProject" value="' + projectName + '">' +
+        '<input type="hidden" id="qaRole" value="' + role + '">' +
+        '<div class="form-group">' +
+        '<label>פרויקט</label>' +
+        '<input type="text" value="' + projectName + '" disabled style="opacity:0.7">' +
+        '</div>' +
+        '<div class="form-group">' +
+        '<label>תאריך</label>' +
+        '<input type="date" id="qaDate" value="' + today + '" required>' +
+        '</div>' +
+        '<div class="form-group">' +
+        '<label>משימה</label>' +
+        '<select id="qaTask" required>' + taskOptions + '</select>' +
+        '</div>' +
+        '<div class="form-group">' +
+        '<label>שעות</label>' +
+        '<input type="number" id="qaHours" min="0.5" max="24" step="0.5" required placeholder="0">' +
+        '</div>' +
+        '<div class="form-group">' +
+        '<label>מבצע</label>' +
+        '<select id="qaWorker">' + workerOptions + '</select>' +
+        '</div>' +
+        '<div class="form-group">' +
+        '<label>הערה</label>' +
+        '<textarea id="qaNote" rows="2" placeholder="הערות..."></textarea>' +
+        '</div>' +
+        '<div class="modal-actions">' +
+        '<button type="button" class="btn btn-secondary" onclick="closeModal(\'quickAddModal\')">ביטול</button>' +
+        '<button type="submit" class="btn btn-primary">שמור דיווח</button>' +
+        '</div>' +
+        '</form>' +
+        '</div>';
+
+    modal.classList.remove('hidden');
+}
+
+async function submitQuickAdd(e) {
+    e.preventDefault();
+
+    var entry = {
+        date: document.getElementById('qaDate').value,
+        project: document.getElementById('qaProject').value,
+        role: document.getElementById('qaRole').value,
+        task: document.getElementById('qaTask').value,
+        hours: parseFloat(document.getElementById('qaHours').value),
+        worker: document.getElementById('qaWorker').value || 'לא צוין',
+        status: 'מתקדם',
+        note: document.getElementById('qaNote').value || '',
+        images: '[]',
+        created_at: new Date().toISOString()
+    };
+
+    try {
+        await supabaseInsert('work_logs', entry);
+        showToast('הדיווח נשמר בהצלחה!', 'success');
+    } catch (err) {
+        var logs = JSON.parse(localStorage.getItem('workLogs') || '[]');
+        entry.id = Date.now();
+        logs.push(entry);
+        localStorage.setItem('workLogs', JSON.stringify(logs));
+        showToast('הדיווח נשמר (מקומית)', 'success');
+    }
+
+    closeModal('quickAddModal');
+    await loadWorkLogs();
+    renderProjects();
 }
