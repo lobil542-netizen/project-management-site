@@ -152,6 +152,7 @@ function showTab(tabName) {
     if (tabName === 'manage') renderManage();
     if (tabName === 'worklog') renderWorkLog();
     if (tabName === 'overview') renderOverview();
+    if (tabName === 'analytics') renderAnalytics();
 }
 
 // ========== כניסת מנהל ==========
@@ -2035,3 +2036,355 @@ renderManage = function() {
     _originalRenderManage();
     renderPDFArchive();
 };
+
+
+// ============================================================
+// דשבורד ניתוח - Analysis Dashboard
+// ============================================================
+
+async function renderAnalytics() {
+    await loadWorkLogs();
+
+    var projects = [];
+    try {
+        projects = await supabaseSelectAll('projects') || [];
+    } catch (e) {
+        projects = data.projects || [];
+    }
+
+    var container = document.getElementById('analyticsContent');
+    if (!container) return;
+
+    var filterVal = (document.getElementById('analyticsProjectFilter') || {}).value || '';
+    var filterHtml = '<div class="analytics-filter-bar">' +
+        '<label class="analytics-filter-label">סינון לפי פרויקט:</label>' +
+        '<select id="analyticsProjectFilter" onchange="renderAnalytics()" class="analytics-filter-select">' +
+        '<option value="">כל הפרויקטים</option>';
+    for (var pi = 0; pi < projects.length; pi++) {
+        var p = projects[pi];
+        if (p.active) {
+            filterHtml += '<option value="' + p.name + '"' + (p.name === filterVal ? ' selected' : '') + '>' + p.name + '</option>';
+        }
+    }
+    filterHtml += '</select></div>';
+
+    var filteredLogs = workLogs.slice();
+    var filteredAttendance = supabaseAttendance.slice();
+    var filteredProjects = projects.filter(function(p) { return p.active; });
+
+    if (filterVal) {
+        filteredLogs = filteredLogs.filter(function(l) { return l.project === filterVal; });
+        filteredAttendance = filteredAttendance.filter(function(e) { return e.project === filterVal; });
+        filteredProjects = filteredProjects.filter(function(p) { return p.name === filterVal; });
+    }
+
+    var activeProjects = projects.filter(function(p) { return p.active; });
+    var totalProjects = projects.length;
+    var activeCount = filterVal ? filteredProjects.length : activeProjects.length;
+
+    var now = new Date();
+    var weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+
+    var weeklyHours = 0;
+    var totalBudgetHours = 0;
+
+    for (var i = 0; i < filteredLogs.length; i++) {
+        var logDate = new Date(filteredLogs[i].date);
+        if (logDate >= weekStart && logDate <= now) {
+            weeklyHours += (parseFloat(filteredLogs[i].hours) || 0);
+        }
+    }
+
+    var checkins = filteredAttendance.filter(function(e) { return e.type === 'checkin'; });
+    var checkouts = filteredAttendance.filter(function(e) { return e.type === 'checkout'; });
+    for (var ci = 0; ci < checkins.length; ci++) {
+        var ckin = checkins[ci];
+        var ckinDate = new Date(ckin.time || ckin.date);
+        if (ckinDate >= weekStart && ckinDate <= now) {
+            var co = null;
+            for (var coi = 0; coi < checkouts.length; coi++) {
+                if (checkouts[coi].worker_id === ckin.worker_id && checkouts[coi].date === ckin.date) {
+                    co = checkouts[coi];
+                    break;
+                }
+            }
+            if (co) {
+                var hrs = (new Date(co.time) - new Date(ckin.time)) / (1000 * 60 * 60);
+                if (hrs > 0 && hrs < 24) {
+                    weeklyHours += hrs;
+                }
+            }
+        }
+    }
+
+    for (var bp = 0; bp < filteredProjects.length; bp++) {
+        var budgets = getRoleBudgets(filteredProjects[bp].name);
+        for (var bk in budgets) {
+            if (budgets.hasOwnProperty(bk)) {
+                totalBudgetHours += (parseFloat(budgets[bk]) || 0);
+            }
+        }
+    }
+
+    var completedTasks = 0;
+    var stuckTasks = 0;
+    var totalTasks = filteredLogs.length;
+
+    for (var ti = 0; ti < filteredLogs.length; ti++) {
+        var logStatus = filteredLogs[ti].status || '';
+        if (logStatus === 'הושלם' || logStatus === 'מתקדם') {
+            completedTasks++;
+        }
+        if (logStatus === 'תקוע') {
+            stuckTasks++;
+        }
+    }
+
+    // ===== STATS CARDS =====
+    var statsHtml = '<div class="analytics-stats-row">';
+
+    statsHtml += '<div class="analytics-stat-card">' +
+        '<div class="analytics-stat-icon" style="background: rgba(37, 99, 235, 0.15); color: var(--primary);">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>' +
+        '</div>' +
+        '<div class="analytics-stat-info">' +
+        '<div class="analytics-stat-value">' + activeCount + '</div>' +
+        '<div class="analytics-stat-label">פרויקטים פעילים</div>' +
+        '<div class="analytics-stat-sub">מתוך ' + totalProjects + ' פרויקטים</div>' +
+        '</div></div>';
+
+    var weeklyPct = totalBudgetHours > 0 ? Math.round((weeklyHours / totalBudgetHours) * 100) : 0;
+    statsHtml += '<div class="analytics-stat-card">' +
+        '<div class="analytics-stat-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--success);">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+        '</div>' +
+        '<div class="analytics-stat-info">' +
+        '<div class="analytics-stat-value">' + weeklyHours.toFixed(1) + '</div>' +
+        '<div class="analytics-stat-label">שעות שבועיות</div>' +
+        '<div class="analytics-stat-sub">תקציב: ' + totalBudgetHours.toFixed(0) + ' שעות</div>' +
+        '</div></div>';
+
+    statsHtml += '<div class="analytics-stat-card">' +
+        '<div class="analytics-stat-icon" style="background: rgba(139, 92, 246, 0.15); color: var(--purple);">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
+        '</div>' +
+        '<div class="analytics-stat-info">' +
+        '<div class="analytics-stat-value">' + completedTasks + '</div>' +
+        '<div class="analytics-stat-label">משימות שהושלמו</div>' +
+        '<div class="analytics-stat-sub">מתוך ' + totalTasks + ' משימות</div>' +
+        '</div></div>';
+
+    statsHtml += '<div class="analytics-stat-card' + (stuckTasks > 0 ? ' analytics-stat-danger' : '') + '">' +
+        '<div class="analytics-stat-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--danger);">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' +
+        '</div>' +
+        '<div class="analytics-stat-info">' +
+        '<div class="analytics-stat-value">' + stuckTasks + '</div>' +
+        '<div class="analytics-stat-label">משימות תקועות</div>' +
+        '<div class="analytics-stat-sub">' + (stuckTasks > 0 ? 'דורשות טיפול!' : 'אין משימות תקועות') + '</div>' +
+        '</div></div>';
+
+    statsHtml += '</div>';
+
+    // ===== CATEGORY BREAKDOWN =====
+    var roleData = {};
+
+    for (var ri = 0; ri < filteredLogs.length; ri++) {
+        var log = filteredLogs[ri];
+        var role = log.role || 'לא מוגדר';
+        if (!roleData[role]) {
+            roleData[role] = { hours: 0, tasks: 0, budget: 0 };
+        }
+        roleData[role].hours += (parseFloat(log.hours) || 0);
+        roleData[role].tasks += 1;
+    }
+
+    for (var ai = 0; ai < checkins.length; ai++) {
+        var ck = checkins[ai];
+        var aRole = ck.role || 'לא מוגדר';
+        if (!roleData[aRole]) {
+            roleData[aRole] = { hours: 0, tasks: 0, budget: 0 };
+        }
+        var aco = null;
+        for (var acoi = 0; acoi < checkouts.length; acoi++) {
+            if (checkouts[acoi].worker_id === ck.worker_id && checkouts[acoi].date === ck.date) {
+                aco = checkouts[acoi];
+                break;
+            }
+        }
+        if (aco) {
+            var aHrs = (new Date(aco.time) - new Date(ck.time)) / (1000 * 60 * 60);
+            if (aHrs > 0 && aHrs < 24) {
+                roleData[aRole].hours += aHrs;
+            }
+        }
+    }
+
+    for (var rpi = 0; rpi < filteredProjects.length; rpi++) {
+        var rBudgets = getRoleBudgets(filteredProjects[rpi].name);
+        for (var rk in rBudgets) {
+            if (rBudgets.hasOwnProperty(rk)) {
+                if (!roleData[rk]) {
+                    roleData[rk] = { hours: 0, tasks: 0, budget: 0 };
+                }
+                roleData[rk].budget += (parseFloat(rBudgets[rk]) || 0);
+            }
+        }
+    }
+
+    var roleKeys = Object.keys(roleData).sort(function(a, b) {
+        var aOver = roleData[a].budget > 0 && roleData[a].hours > roleData[a].budget ? 1 : 0;
+        var bOver = roleData[b].budget > 0 && roleData[b].hours > roleData[b].budget ? 1 : 0;
+        if (bOver !== aOver) return bOver - aOver;
+        return roleData[b].hours - roleData[a].hours;
+    });
+
+    var catHtml = '<div class="analytics-section">' +
+        '<div class="analytics-section-header">' +
+        '<h3>פילוח לפי קטגוריה</h3>' +
+        '</div>' +
+        '<div class="analytics-category-list">';
+
+    if (roleKeys.length === 0) {
+        catHtml += '<div class="empty-state">אין נתונים להציג</div>';
+    }
+
+    for (var rki = 0; rki < roleKeys.length; rki++) {
+        var rName = roleKeys[rki];
+        var rd = roleData[rName];
+        var hasBudget = rd.budget > 0;
+        var pct = hasBudget ? Math.round((rd.hours / rd.budget) * 100) : 0;
+        var barWidth = hasBudget ? Math.min(pct, 100) : (rd.hours > 0 ? 50 : 0);
+        var barColor = '#22c55e';
+        if (hasBudget) {
+            if (pct > 100) {
+                barColor = '#ef4444';
+            } else if (pct >= 80) {
+                barColor = '#f59e0b';
+            }
+        }
+        var isOver = hasBudget && pct > 100;
+
+        catHtml += '<div class="analytics-category-item' + (isOver ? ' analytics-over-budget' : '') + '">' +
+            '<div class="analytics-category-header">' +
+            '<div class="analytics-category-name">' +
+            (isOver ? '<span class="analytics-warning-icon">⚠️</span> ' : '') +
+            '<span class="analytics-role-badge">' + rName + '</span>' +
+            '</div>' +
+            '<div class="analytics-category-meta">' +
+            '<span class="analytics-category-tasks">' + rd.tasks + ' משימות</span>' +
+            '<span class="analytics-category-hours">' + rd.hours.toFixed(1) + (hasBudget ? ' / ' + rd.budget.toFixed(0) : '') + ' שעות</span>' +
+            (hasBudget ? '<span class="analytics-category-pct" style="color: ' + barColor + ';">' + pct + '%</span>' : '') +
+            '</div>' +
+            '</div>' +
+            '<div class="analytics-progress-track">' +
+            '<div class="analytics-progress-bar" style="width: ' + barWidth + '%; background: ' + barColor + ';"></div>' +
+            (isOver ? '<div class="analytics-progress-overflow" style="width: ' + Math.min(pct - 100, 100) + '%; background: rgba(239, 68, 68, 0.3);"></div>' : '') +
+            '</div>' +
+            '</div>';
+    }
+
+    catHtml += '</div></div>';
+
+    // ===== TASKS REQUIRING ATTENTION =====
+    var attentionItems = [];
+
+    for (var ali = 0; ali < filteredLogs.length; ali++) {
+        var aLog = filteredLogs[ali];
+        var aLogStatus = aLog.status || '';
+        var aLogRole = aLog.role || '';
+        var aLogProject = aLog.project || '';
+        var aLogHours = parseFloat(aLog.hours) || 0;
+
+        var isStuck = (aLogStatus === 'תקוע');
+
+        var roleBudget = 0;
+        var roleUsed = 0;
+        var aBudgets = getRoleBudgets(aLogProject);
+        if (aBudgets[aLogRole]) {
+            roleBudget = parseFloat(aBudgets[aLogRole]) || 0;
+            for (var sui = 0; sui < workLogs.length; sui++) {
+                if (workLogs[sui].project === aLogProject && workLogs[sui].role === aLogRole) {
+                    roleUsed += (parseFloat(workLogs[sui].hours) || 0);
+                }
+            }
+        }
+        var isOverBudget = (roleBudget > 0 && roleUsed > roleBudget);
+        var isNearBudget = (roleBudget > 0 && roleUsed >= roleBudget * 0.85 && !isOverBudget);
+
+        if (isStuck || isOverBudget || isNearBudget) {
+            attentionItems.push({
+                task: aLog.task || 'לא צוין',
+                project: aLogProject,
+                role: aLogRole,
+                status: aLogStatus,
+                hours: aLogHours,
+                roleUsed: roleUsed,
+                roleBudget: roleBudget,
+                isStuck: isStuck,
+                isOverBudget: isOverBudget,
+                isNearBudget: isNearBudget,
+                date: aLog.date || ''
+            });
+        }
+    }
+
+    var seenAttention = {};
+    var uniqueAttention = [];
+    for (var uai = 0; uai < attentionItems.length; uai++) {
+        var aKey = attentionItems[uai].task + '|' + attentionItems[uai].project + '|' + attentionItems[uai].role;
+        if (!seenAttention[aKey]) {
+            seenAttention[aKey] = true;
+            uniqueAttention.push(attentionItems[uai]);
+        }
+    }
+
+    var attHtml = '<div class="analytics-section">' +
+        '<div class="analytics-section-header">' +
+        '<h3>משימות שדורשות תשומת לב</h3>' +
+        '<span class="analytics-attention-count">' + uniqueAttention.length + ' פריטים</span>' +
+        '</div>' +
+        '<div class="analytics-attention-list">';
+
+    if (uniqueAttention.length === 0) {
+        attHtml += '<div class="analytics-attention-empty">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="40" height="40"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
+            '<p>אין משימות שדורשות תשומת לב כרגע</p></div>';
+    }
+
+    for (var ati = 0; ati < uniqueAttention.length; ati++) {
+        var item = uniqueAttention[ati];
+        var statusClass = item.isStuck ? 'analytics-status-stuck' : (item.isOverBudget ? 'analytics-status-over' : 'analytics-status-near');
+        var statusText = item.isStuck ? 'תקוע' : (item.isOverBudget ? 'חריגת תקציב' : 'קרוב לתקציב');
+
+        attHtml += '<div class="analytics-attention-item">' +
+            (item.isOverBudget ? '<div class="analytics-attention-warning"></div>' : '') +
+            '<div class="analytics-attention-content">' +
+            '<div class="analytics-attention-top">' +
+            '<span class="analytics-attention-task">' + item.task + '</span>' +
+            '<span class="analytics-status-badge ' + statusClass + '">' + statusText + '</span>' +
+            '</div>' +
+            '<div class="analytics-attention-details">' +
+            '<span class="analytics-attention-project">' + item.project + '</span>' +
+            '<span class="analytics-role-badge analytics-role-sm">' + item.role + '</span>' +
+            (item.roleBudget > 0 ? '<span class="analytics-attention-hours' + (item.isOverBudget ? ' analytics-hours-over' : '') + '">' + item.roleUsed.toFixed(1) + ' / ' + item.roleBudget.toFixed(0) + ' שעות</span>' : '') +
+            '</div>' +
+            '</div>' +
+            '</div>';
+    }
+
+    attHtml += '</div></div>';
+
+    // ===== COMBINE ALL =====
+    container.innerHTML = '<div class="analytics-dashboard">' +
+        '<div class="analytics-header">' +
+        '<h2>דשבורד ניתוח</h2>' +
+        filterHtml +
+        '</div>' +
+        statsHtml +
+        catHtml +
+        attHtml +
+        '</div>';
+}

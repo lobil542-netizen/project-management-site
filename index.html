@@ -187,6 +187,7 @@
         </header>
 
         <nav class="dashboard-nav">
+            <button class="nav-btn" onclick="showTab('analytics')" data-tab="analytics">דשבורד ניתוח</button>
             <button class="nav-btn active" onclick="showTab('overview')" data-tab="overview">סקירה כללית</button>
             <button class="nav-btn" onclick="showTab('workers')" data-tab="workers">עובדים</button>
             <button class="nav-btn" onclick="showTab('hours')" data-tab="hours">שעות עובדים</button>
@@ -503,6 +504,12 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+            <!-- דשבורד ניתוח -->
+            <div id="tab-analytics" class="tab-content">
+                <div id="analyticsContent">
+                    <div class="empty-state">טוען...</div>
                 </div>
             </div>
         </main>
