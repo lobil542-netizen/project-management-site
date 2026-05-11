@@ -484,6 +484,25 @@
                             <button class="btn btn-secondary btn-small" onclick="exportData()">ייצוא CSV</button>
                         </div>
                     </div>
+                
+                    <div class="card" style="grid-column: 1 / -1;">
+                        <div class="card-header">
+                            <h3>ארכיון דיווחי עבודה (PDF)</h3>
+                            <button class="btn btn-primary btn-small" onclick="exportAllWorkLogsPDF()">ייצוא הכל</button>
+                        </div>
+                        <div class="card-body">
+                            <div class="filter-bar" style="margin-bottom: 1rem;">
+                                <select id="archiveFilterProject" onchange="renderPDFArchive()">
+                                    <option value="">כל הפרויקטים</option>
+                                </select>
+                                <input type="date" id="archiveFilterFrom" onchange="renderPDFArchive()" placeholder="מתאריך">
+                                <input type="date" id="archiveFilterTo" onchange="renderPDFArchive()" placeholder="עד תאריך">
+                            </div>
+                            <div id="pdfArchiveList" class="pdf-archive-list">
+                                <div class="empty-state">טוען דיווחים...</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>

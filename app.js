@@ -1740,12 +1740,14 @@ async function submitWorkLog(e) {
     try {
         await supabaseInsert('work_logs', entry);
         showToast('הדיווח נשמר בהצלחה!', 'success');
+        if (confirm('לשמור כ-PDF?')) saveSingleWorkLogPDF(entry);
     } catch (err) {
         const logs = JSON.parse(localStorage.getItem('workLogs') || '[]');
         entry.id = Date.now();
         logs.push(entry);
         localStorage.setItem('workLogs', JSON.stringify(logs));
         showToast('הדיווח נשמר (מקומית)', 'success');
+        if (confirm('לשמור כ-PDF?')) saveSingleWorkLogPDF(entry);
     }
 
     document.getElementById('wlHours').value = '';
@@ -1901,3 +1903,135 @@ function removeWorkStage(stage) {
     renderManage();
     showToast('משימה "' + stage + '" הוסרה', 'info');
 }
+
+// ========== ארכיון PDF ==========
+function saveSingleWorkLogPDF(entry) {
+    const dateDisplay = entry.date ? new Date(entry.date).toLocaleDateString('he-IL') : '-';
+    const sc = entry.status === 'תקוע' ? 'color:#dc3545;font-weight:700' : entry.status === 'חלקי' ? 'color:#fd7e14;font-weight:700' : 'color:#28a745;font-weight:700';
+
+    let imagesHtml = '';
+    try {
+        const imgs = JSON.parse(entry.images || '[]');
+        if (imgs.length > 0) {
+            imagesHtml = '<div style="margin-top:15px;"><h4 style="margin-bottom:8px;">תמונות מצורפות</h4><div style="display:flex;flex-wrap:wrap;gap:8px;">' +
+                imgs.map(function(img) { return '<img src="' + img.data + '" style="max-width:200px;max-height:150px;border:1px solid #ddd;border-radius:4px;">'; }).join('') +
+                '</div></div>';
+        }
+    } catch(e) {}
+
+    const html = '<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>דיווח עבודה - ' + (entry.project||'') + ' - ' + dateDisplay + '</title>' +
+        '<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Tahoma,Arial,sans-serif;padding:30px;direction:rtl;max-width:800px;margin:0 auto}' +
+        '.header{text-align:center;margin-bottom:20px;border-bottom:3px solid #1e3a5f;padding-bottom:12px}' +
+        '.header h1{font-size:20px;color:#1e3a5f}.header h2{font-size:16px;color:#333;margin-top:4px}.header p{color:#666;font-size:12px;margin-top:4px}' +
+        '.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}' +
+        '.detail-item{background:#f0f4f8;padding:12px;border-radius:8px}.detail-label{font-size:11px;color:#666;display:block;margin-bottom:4px}' +
+        '.detail-value{font-size:15px;font-weight:700;color:#1e3a5f}' +
+        '.note-section{background:#f8f9fa;padding:15px;border-radius:8px;border:1px solid #e2e8f0;margin-top:12px}' +
+        '.note-section h4{font-size:13px;color:#666;margin-bottom:6px}' +
+        '.footer{text-align:center;color:#999;font-size:10px;margin-top:25px;border-top:1px solid #ddd;padding-top:8px}' +
+        '@media print{body{padding:15px}}</style></head>' +
+        '<body>' +
+        '<div class="header"><h1>SKELETON CONSTRUCTION</h1><h2>דיווח עבודה</h2><p>' + dateDisplay + '</p></div>' +
+        '<div class="detail-grid">' +
+        '<div class="detail-item"><span class="detail-label">פרויקט</span><span class="detail-value">' + (entry.project||'-') + '</span></div>' +
+        '<div class="detail-item"><span class="detail-label">מקצוע</span><span class="detail-value">' + (entry.role||'-') + '</span></div>' +
+        '<div class="detail-item"><span class="detail-label">משימה</span><span class="detail-value">' + (entry.task||'-') + '</span></div>' +
+        '<div class="detail-item"><span class="detail-label">שעות</span><span class="detail-value">' + (entry.hours||0) + '</span></div>' +
+        '<div class="detail-item"><span class="detail-label">מבצע</span><span class="detail-value">' + (entry.worker||'-') + '</span></div>' +
+        '<div class="detail-item"><span class="detail-label">סטטוס</span><span class="detail-value" style="' + sc + '">' + (entry.status||'-') + '</span></div>' +
+        '</div>' +
+        (entry.note ? '<div class="note-section"><h4>הערות</h4><p>' + entry.note + '</p></div>' : '') +
+        imagesHtml +
+        '<div class="footer">SKELETON CONSTRUCTION - מערכת פיקוח פרויקטים</div>' +
+        '</body></html>';
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(function() { printWindow.print(); }, 500);
+}
+
+async function renderPDFArchive() {
+    await loadWorkLogs();
+
+    const filterProject = (document.getElementById('archiveFilterProject') || {}).value || '';
+    const filterFrom = (document.getElementById('archiveFilterFrom') || {}).value || '';
+    const filterTo = (document.getElementById('archiveFilterTo') || {}).value || '';
+
+    // Update project filter
+    const filterProjSelect = document.getElementById('archiveFilterProject');
+    if (filterProjSelect && filterProjSelect.options.length <= 1) {
+        filterProjSelect.innerHTML = '<option value="">כל הפרויקטים</option>' +
+            wlProjectsCache.map(function(p) {
+                return '<option value="' + p.name + '">' + p.name + '</option>';
+            }).join('');
+    }
+
+    let filtered = workLogs.slice().sort(function(a, b) {
+        return new Date(b.created_at || b.date) - new Date(a.created_at || a.date);
+    });
+
+    if (filterProject) filtered = filtered.filter(function(l) { return l.project === filterProject; });
+    if (filterFrom) filtered = filtered.filter(function(l) { return l.date >= filterFrom; });
+    if (filterTo) filtered = filtered.filter(function(l) { return l.date <= filterTo; });
+
+    const container = document.getElementById('pdfArchiveList');
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<div class="empty-state">אין דיווחים</div>';
+        return;
+    }
+
+    // Group by date
+    const grouped = {};
+    filtered.forEach(function(log) {
+        const key = log.date || 'ללא תאריך';
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(log);
+    });
+
+    let html = '';
+    Object.keys(grouped).sort().reverse().forEach(function(date) {
+        const dateDisplay = date !== 'ללא תאריך' ? new Date(date).toLocaleDateString('he-IL') : date;
+        const logs = grouped[date];
+        const totalHours = logs.reduce(function(sum, l) { return sum + (l.hours || 0); }, 0);
+
+        html += '<div class="archive-date-group">';
+        html += '<div class="archive-date-header"><span class="archive-date">' + dateDisplay + '</span><span class="archive-date-info">' + logs.length + ' דיווחים | ' + totalHours.toFixed(1) + ' שעות</span></div>';
+
+        logs.forEach(function(log) {
+            var statusClass = log.status === 'תקוע' ? 'badge-stuck' : log.status === 'חלקי' ? 'badge-partial' : 'badge-active';
+            var hasImages = false;
+            try { hasImages = log.images && JSON.parse(log.images).length > 0; } catch(e) {}
+
+            html += '<div class="archive-item">' +
+                '<div class="archive-item-info">' +
+                '<strong>' + (log.project||'-') + '</strong> | ' +
+                '<span class="badge badge-type">' + (log.role||'-') + '</span> | ' +
+                (log.task||'-') + ' | ' +
+                '<strong>' + (log.hours||0) + ' שעות</strong> | ' +
+                (log.worker||'-') + ' | ' +
+                '<span class="badge ' + statusClass + '">' + (log.status||'-') + '</span>' +
+                (hasImages ? ' 📷' : '') +
+                '</div>' +
+                '<button class="btn btn-outline btn-small" onclick="saveSingleWorkLogPDF(workLogs.find(function(l){return l.id==' + log.id + '}))">📄 PDF</button>' +
+                '</div>';
+        });
+
+        html += '</div>';
+    });
+
+    container.innerHTML = html;
+}
+
+function exportAllWorkLogsPDF() {
+    exportWorkLogPDF();
+}
+
+// Override renderManage to also load archive
+var _originalRenderManage = renderManage;
+renderManage = function() {
+    _originalRenderManage();
+    renderPDFArchive();
+};
