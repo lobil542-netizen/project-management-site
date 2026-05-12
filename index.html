@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SKELETON CONSTRUCTION</title>
-    <link rel="stylesheet" href="style.css?v=1778572381">
+    <link rel="stylesheet" href="style.css?v=1778572684">
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -187,18 +187,17 @@
         </header>
 
         <nav class="dashboard-nav">
-            <button class="nav-btn" onclick="showTab('analytics')" data-tab="analytics">דשבורד ניתוח</button>
-            <button class="nav-btn active" onclick="showTab('overview')" data-tab="overview">סקירה כללית</button>
-            <button class="nav-btn" onclick="showTab('workers')" data-tab="workers">עובדים</button>
-            <button class="nav-btn" onclick="showTab('hours')" data-tab="hours">שעות עובדים</button>
+            <button class="nav-btn active" onclick="showTab('analytics')" data-tab="analytics">דשבורד ניתוח</button>
             <button class="nav-btn" onclick="showTab('projects')" data-tab="projects">פרויקטים</button>
             <button class="nav-btn" onclick="showTab('worklog')" data-tab="worklog">יומן עבודה</button>
+            <button class="nav-btn" onclick="showTab('workers')" data-tab="workers">עובדים</button>
+            <button class="nav-btn" onclick="showTab('hours')" data-tab="hours">שעות עובדים בפועל</button>
             <button class="nav-btn" onclick="showTab('manage')" data-tab="manage">ניהול</button>
         </nav>
 
         <main class="dashboard-content">
             <!-- סקירה כללית -->
-            <div id="tab-overview" class="tab-content active">
+            <div id="tab-overview" class="tab-content">
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-icon blue">
@@ -507,7 +506,7 @@
                 </div>
             </div>
             <!-- דשבורד ניתוח -->
-            <div id="tab-analytics" class="tab-content">
+            <div id="tab-analytics" class="tab-content active">
                 <div id="analyticsContent">
                     <div class="empty-state">טוען...</div>
                 </div>
@@ -582,6 +581,6 @@
     <div id="toast" class="toast hidden"></div>
 
     <script src="supabase-config.js?v=1778527607"></script>
-    <script src="app.js?v=1778572381"></script>
+    <script src="app.js?v=1778572684"></script>
 </body>
 </html>

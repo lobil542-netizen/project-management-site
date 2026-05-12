@@ -103,7 +103,8 @@ async function loadAttendance() {
         const records = await supabaseSelect('attendance');
         supabaseAttendance = records || [];
         if (document.getElementById('tab-overview')?.classList.contains('active')) {
-            renderOverview();
+            renderAnalytics();
+    renderOverview();
         }
         if (document.getElementById('tab-logs')?.classList.contains('active')) {
             renderLogs();
@@ -504,6 +505,7 @@ function approveAllPending() {
 // ========== רינדור דשבורד ==========
 async function renderAll() {
     await loadAttendance();
+    renderAnalytics();
     renderOverview();
     checkPendingRegistrations();
 }
