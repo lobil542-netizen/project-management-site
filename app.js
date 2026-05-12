@@ -2170,6 +2170,7 @@ async function renderPDFArchive() {
                 (hasImages ? ' 📷' : '') +
                 '</div>' +
                 '<button class="btn btn-outline btn-small" onclick="saveSingleWorkLogPDF(workLogs.find(function(l){return l.id==' + log.id + '}))">📄 PDF</button>' +
+                '<button class="btn btn-outline btn-small btn-delete-archive" onclick="deleteWorkLogFromArchive(' + log.id + ')" title="מחק דיווח">🗑</button>' +
                 '</div>';
         });
 
@@ -2177,6 +2178,22 @@ async function renderPDFArchive() {
     });
 
     container.innerHTML = html;
+}
+
+async function deleteWorkLogFromArchive(id) {
+    if (!verifyAdminPassword()) return;
+    if (!confirm('למחוק דיווח זה?')) return;
+    try {
+        await supabaseDelete('work_logs', id);
+        showToast('הדיווח נמחק', 'info');
+    } catch (err) {
+        const logs = JSON.parse(localStorage.getItem('workLogs') || '[]');
+        localStorage.setItem('workLogs', JSON.stringify(logs.filter(l => l.id !== id)));
+        showToast('הדיווח נמחק', 'info');
+    }
+    await loadWorkLogs();
+    renderWorkLogHistory();
+    renderPDFArchive();
 }
 
 function exportAllWorkLogsPDF() {

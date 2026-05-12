@@ -1489,6 +1489,19 @@ body {
     flex-wrap: wrap;
 }
 
+.btn-delete-archive {
+    background: #dc2626 !important;
+    color: white !important;
+    border: none !important;
+    font-size: 0.75rem !important;
+    padding: 0.25rem 0.5rem !important;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.btn-delete-archive:hover {
+    background: #b91c1c !important;
+}
+
 /* ============================================================ */
 /* Analytics Dashboard Styles */
 /* ============================================================ */
