@@ -510,16 +510,50 @@ async function renderAll() {
     checkPendingRegistrations();
 }
 
-function renderOverview() {
+async function renderOverview() {
+    await loadWorkLogs();
+
     // Stats
     document.getElementById('statTotalWorkers').textContent = data.workers.length;
-    const activeNow = data.logs.filter(l => !l.checkoutTime).length;
+    var activeNow = data.logs.filter(function(l) { return !l.checkoutTime; }).length;
     document.getElementById('statActiveNow').textContent = activeNow;
 
-    const today = new Date().toLocaleDateString('he-IL');
-    const todayHours = data.logs
-        .filter(l => l.date === today && l.totalHours)
-        .reduce((sum, l) => sum + l.totalHours, 0);
+    var today = new Date().toLocaleDateString('he-IL');
+    var todayISO = new Date().toISOString().slice(0, 10);
+    var todayHours = data.logs
+        .filter(function(l) { return l.date === today && l.totalHours; })
+        .reduce(function(sum, l) { return sum + l.totalHours; }, 0);
+
+    // Add today hours from supabase attendance
+    var attCheckins = supabaseAttendance.filter(function(e) { return e.type === 'checkin' && e.date === todayISO; });
+    var attCheckouts = supabaseAttendance.filter(function(e) { return e.type === 'checkout' && e.date === todayISO; });
+    for (var aci = 0; aci < attCheckins.length; aci++) {
+        var aCi = attCheckins[aci];
+        var aCo = null;
+        for (var acoi = 0; acoi < attCheckouts.length; acoi++) {
+            if (attCheckouts[acoi].worker_id === aCi.worker_id && attCheckouts[acoi].date === aCi.date) {
+                aCo = attCheckouts[acoi];
+                break;
+            }
+        }
+        if (aCo) {
+            var aHrs = (new Date(aCo.time) - new Date(aCi.time)) / (1000 * 60 * 60);
+            if (aHrs > 0 && aHrs < 24) {
+                todayHours += aHrs;
+            }
+        }
+    }
+
+    // Add today hours from work logs
+    if (typeof workLogs !== 'undefined' && workLogs.length > 0) {
+        for (var wli = 0; wli < workLogs.length; wli++) {
+            var wl = workLogs[wli];
+            if (wl.date === todayISO) {
+                todayHours += (parseFloat(wl.hours) || 0);
+            }
+        }
+    }
+
     document.getElementById('statTodayHours').textContent = todayHours.toFixed(1);
 
     const activeProjects = data.projects.filter(p => p.active).length;
@@ -575,7 +609,28 @@ function renderOverview() {
         source: 'firebase'
     }));
 
-    const allActivity = [...recentLocalLogs, ...recentFirebaseLogs]
+    // Add work log entries to recent activity
+    var recentWorkLogs = [];
+    if (typeof workLogs !== 'undefined' && workLogs.length > 0) {
+        var sortedWL = workLogs.slice().sort(function(a, b) {
+            return new Date(b.created_at || b.date) - new Date(a.created_at || a.date);
+        });
+        for (var rwi = 0; rwi < Math.min(sortedWL.length, 15); rwi++) {
+            var rwl = sortedWL[rwi];
+            recentWorkLogs.push({
+                name: rwl.worker || 'לא צוין',
+                type: rwl.role || '',
+                action: 'דיווח עבודה',
+                dotClass: 'in',
+                time: new Date(rwl.created_at || rwl.date),
+                date: rwl.date || '',
+                workDescription: (rwl.task || '') + (rwl.hours ? ' | ' + rwl.hours + ' שעות' : '') + (rwl.project ? ' | ' + rwl.project : ''),
+                source: 'worklog'
+            });
+        }
+    }
+
+    const allActivity = [...recentLocalLogs, ...recentFirebaseLogs, ...recentWorkLogs]
         .sort((a, b) => b.time - a.time)
         .slice(0, 15);
 
@@ -714,105 +769,166 @@ function editWorker(id) {
 }
 
 // ========== שעות עובדים - 250 שעות ==========
-function renderHours() {
-    const monthFilter = document.getElementById('hoursFilterMonth');
-    const tbody = document.getElementById('hoursTableBody');
+async function renderHours() {
+    await loadWorkLogs();
 
-    // Build month options
-    const months = new Set();
-    const now = new Date();
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    var monthFilter = document.getElementById('hoursFilterMonth');
+    var tbody = document.getElementById('hoursTableBody');
+
+    // Build month options from attendance + work logs
+    var months = new Set();
+    var now = new Date();
+    var currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
     months.add(currentMonth);
 
-    supabaseAttendance.forEach(entry => {
+    supabaseAttendance.forEach(function(entry) {
         if (entry.time) {
-            const d = new Date(entry.time);
-            const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            var d = new Date(entry.time);
+            var m = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
             months.add(m);
         }
     });
 
-    const sortedMonths = [...months].sort().reverse();
-    const selectedMonth = monthFilter.value || currentMonth;
+    // Also add months from work logs
+    if (typeof workLogs !== 'undefined') {
+        for (var wmi = 0; wmi < workLogs.length; wmi++) {
+            var wlDate = workLogs[wmi].date;
+            if (wlDate) {
+                var wd = new Date(wlDate);
+                if (!isNaN(wd.getTime())) {
+                    var wm = wd.getFullYear() + '-' + String(wd.getMonth() + 1).padStart(2, '0');
+                    months.add(wm);
+                }
+            }
+        }
+    }
 
-    monthFilter.innerHTML = sortedMonths.map(m => {
-        const [y, mo] = m.split('-');
-        const label = new Date(y, mo - 1).toLocaleDateString('he-IL', { year: 'numeric', month: 'long' });
-        return `<option value="${m}" ${m === selectedMonth ? 'selected' : ''}>${label}</option>`;
+    var sortedMonths = Array.from(months).sort().reverse();
+    var selectedMonth = monthFilter.value || currentMonth;
+
+    monthFilter.innerHTML = sortedMonths.map(function(m) {
+        var parts = m.split('-');
+        var label = new Date(parts[0], parts[1] - 1).toLocaleDateString('he-IL', { year: 'numeric', month: 'long' });
+        return '<option value="' + m + '"' + (m === selectedMonth ? ' selected' : '') + '>' + label + '</option>';
     }).join('');
 
     // Filter attendance for selected month
-    const monthEntries = supabaseAttendance.filter(entry => {
+    var monthEntries = supabaseAttendance.filter(function(entry) {
         if (!entry.time) return false;
-        const d = new Date(entry.time);
-        const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        var d = new Date(entry.time);
+        var m = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
         return m === selectedMonth;
     });
 
-    const checkins = monthEntries.filter(e => e.type === 'checkin');
-    const checkouts = monthEntries.filter(e => e.type === 'checkout');
+    var checkins = monthEntries.filter(function(e) { return e.type === 'checkin'; });
+    var checkouts = monthEntries.filter(function(e) { return e.type === 'checkout'; });
 
-    // Calculate monthly hours per worker
-    const workerHours = {};
+    // Calculate monthly hours per worker from attendance
+    var workerHours = {};
 
-    checkins.forEach(ci => {
-        const key = ci.worker_id;
+    checkins.forEach(function(ci) {
+        var key = ci.worker_id;
         if (!workerHours[key]) {
             workerHours[key] = { name: ci.full_name, role: ci.role, workerId: ci.worker_id, monthHours: 0, totalHours: 0 };
         }
-        const matchingCheckout = checkouts.find(co =>
-            co.worker_id === ci.worker_id && co.date === ci.date
-        );
+        var matchingCheckout = checkouts.find(function(co) {
+            return co.worker_id === ci.worker_id && co.date === ci.date;
+        });
         if (matchingCheckout) {
-            const ciTime = new Date(ci.time);
-            const coTime = new Date(matchingCheckout.time);
-            const hours = (coTime - ciTime) / (1000 * 60 * 60);
+            var ciTime = new Date(ci.time);
+            var coTime = new Date(matchingCheckout.time);
+            var hours = (coTime - ciTime) / (1000 * 60 * 60);
             if (hours > 0 && hours < 24) {
                 workerHours[key].monthHours += hours;
             }
         }
     });
 
-    // Calculate total hours across all months
-    const allCheckins = supabaseAttendance.filter(e => e.type === 'checkin');
-    const allCheckouts = supabaseAttendance.filter(e => e.type === 'checkout');
+    // Add monthly hours from work logs
+    if (typeof workLogs !== 'undefined') {
+        for (var mwi = 0; mwi < workLogs.length; mwi++) {
+            var mwl = workLogs[mwi];
+            if (!mwl.date) continue;
+            var mwlDate = new Date(mwl.date);
+            if (isNaN(mwlDate.getTime())) continue;
+            var mwlMonth = mwlDate.getFullYear() + '-' + String(mwlDate.getMonth() + 1).padStart(2, '0');
+            if (mwlMonth !== selectedMonth) continue;
 
-    allCheckins.forEach(ci => {
-        const key = ci.worker_id;
+            var wlWorkerName = mwl.worker || 'לא צוין';
+            var wlKey = 'wl_' + wlWorkerName;
+            if (!workerHours[wlKey]) {
+                workerHours[wlKey] = { name: wlWorkerName, role: mwl.role || '', workerId: wlWorkerName, monthHours: 0, totalHours: 0 };
+            }
+            workerHours[wlKey].monthHours += (parseFloat(mwl.hours) || 0);
+        }
+    }
+
+    // Calculate total hours across all months from attendance
+    var allCheckins = supabaseAttendance.filter(function(e) { return e.type === 'checkin'; });
+    var allCheckouts = supabaseAttendance.filter(function(e) { return e.type === 'checkout'; });
+
+    allCheckins.forEach(function(ci) {
+        var key = ci.worker_id;
         if (!workerHours[key]) {
             workerHours[key] = { name: ci.full_name, role: ci.role, workerId: ci.worker_id, monthHours: 0, totalHours: 0 };
         }
-        const matchingCheckout = allCheckouts.find(co =>
-            co.worker_id === ci.worker_id && co.date === ci.date
-        );
+        var matchingCheckout = allCheckouts.find(function(co) {
+            return co.worker_id === ci.worker_id && co.date === ci.date;
+        });
         if (matchingCheckout) {
-            const ciTime = new Date(ci.time);
-            const coTime = new Date(matchingCheckout.time);
-            const hours = (coTime - ciTime) / (1000 * 60 * 60);
+            var ciTime = new Date(ci.time);
+            var coTime = new Date(matchingCheckout.time);
+            var hours = (coTime - ciTime) / (1000 * 60 * 60);
             if (hours > 0 && hours < 24) {
                 workerHours[key].totalHours += hours;
             }
         }
     });
 
-    const workers = Object.values(workerHours).sort((a, b) => b.totalHours - a.totalHours);
+    // Add total hours from work logs (all months)
+    if (typeof workLogs !== 'undefined') {
+        for (var twi = 0; twi < workLogs.length; twi++) {
+            var twl = workLogs[twi];
+            var twlWorkerName = twl.worker || 'לא צוין';
+            var twlKey = 'wl_' + twlWorkerName;
+            if (!workerHours[twlKey]) {
+                workerHours[twlKey] = { name: twlWorkerName, role: twl.role || '', workerId: twlWorkerName, monthHours: 0, totalHours: 0 };
+            }
+            workerHours[twlKey].totalHours += (parseFloat(twl.hours) || 0);
+        }
+    }
 
-    // Get month label for display
-    const [selY, selM] = selectedMonth.split('-');
-    const monthLabel = new Date(selY, selM - 1).toLocaleDateString('he-IL', { year: 'numeric', month: 'long' });
+    // Merge workers with same name (attendance worker_id may match work_log worker name)
+    var mergedWorkers = {};
+    var allWorkerKeys = Object.keys(workerHours);
+    for (var mk = 0; mk < allWorkerKeys.length; mk++) {
+        var wk = allWorkerKeys[mk];
+        var wData = workerHours[wk];
+        var mergeKey = wData.name;
+        if (!mergedWorkers[mergeKey]) {
+            mergedWorkers[mergeKey] = { name: wData.name, role: wData.role, workerId: wData.workerId, monthHours: 0, totalHours: 0 };
+        }
+        mergedWorkers[mergeKey].monthHours += wData.monthHours;
+        mergedWorkers[mergeKey].totalHours += wData.totalHours;
+        // Keep role from attendance if available
+        if (wData.role && !mergedWorkers[mergeKey].role) {
+            mergedWorkers[mergeKey].role = wData.role;
+        }
+    }
+
+    var workers = Object.values(mergedWorkers).sort(function(a, b) { return b.totalHours - a.totalHours; });
 
     if (workers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="empty-state">אין נתוני שעות לחודש זה</td></tr>`;
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">אין נתוני שעות לחודש זה</td></tr>';
     } else {
-        tbody.innerHTML = workers.map(w => {
-            return `
-            <tr>
-                <td><strong>${w.workerId}</strong></td>
-                <td>${w.name}</td>
-                <td><span class="badge badge-type">${w.role}</span></td>
-                <td><strong>${w.monthHours.toFixed(1)}</strong></td>
-                <td><strong>${w.totalHours.toFixed(1)}</strong></td>
-            </tr>`;
+        tbody.innerHTML = workers.map(function(w) {
+            return '<tr>' +
+                '<td><strong>' + w.workerId + '</strong></td>' +
+                '<td>' + w.name + '</td>' +
+                '<td><span class="badge badge-type">' + w.role + '</span></td>' +
+                '<td><strong>' + w.monthHours.toFixed(1) + '</strong></td>' +
+                '<td><strong>' + w.totalHours.toFixed(1) + '</strong></td>' +
+                '</tr>';
         }).join('');
     }
 }
@@ -1080,18 +1196,18 @@ function openRoleModal(projectName, role) {
 
 // ========== רינדור פרויקטים ==========
 function getRoleHours() {
-    const roleHours = {};
-    data.workerTypes.forEach(role => { roleHours[role] = 0; });
+    var roleHours = {};
+    data.workerTypes.forEach(function(role) { roleHours[role] = 0; });
 
-    const checkins = supabaseAttendance.filter(e => e.type === 'checkin');
-    const checkouts = supabaseAttendance.filter(e => e.type === 'checkout');
+    var checkins = supabaseAttendance.filter(function(e) { return e.type === 'checkin'; });
+    var checkouts = supabaseAttendance.filter(function(e) { return e.type === 'checkout'; });
 
-    checkins.forEach(ci => {
-        const co = checkouts.find(c => c.worker_id === ci.worker_id && c.date === ci.date);
+    checkins.forEach(function(ci) {
+        var co = checkouts.find(function(c) { return c.worker_id === ci.worker_id && c.date === ci.date; });
         if (co) {
-            const hours = (new Date(co.time) - new Date(ci.time)) / (1000 * 60 * 60);
+            var hours = (new Date(co.time) - new Date(ci.time)) / (1000 * 60 * 60);
             if (hours > 0 && hours < 24) {
-                const role = ci.role;
+                var role = ci.role;
                 if (roleHours[role] !== undefined) {
                     roleHours[role] += hours;
                 } else {
@@ -1100,6 +1216,22 @@ function getRoleHours() {
             }
         }
     });
+
+    // Add hours from work logs
+    if (typeof workLogs !== 'undefined') {
+        for (var rhi = 0; rhi < workLogs.length; rhi++) {
+            var rwl = workLogs[rhi];
+            var r = rwl.role || '';
+            var h = parseFloat(rwl.hours) || 0;
+            if (r && h > 0) {
+                if (roleHours[r] !== undefined) {
+                    roleHours[r] += h;
+                } else {
+                    roleHours[r] = h;
+                }
+            }
+        }
+    }
 
     return roleHours;
 }
