@@ -682,7 +682,7 @@ async function renderWorkers() {
     updateWorkerFormSelects();
 }
 
-function updateWorkerFormSelects() {
+async function updateWorkerFormSelects() {
     const typeSelect = document.getElementById('newWorkerTypeSelect');
     if (typeSelect) {
         typeSelect.innerHTML = data.workerTypes.map(t =>
@@ -692,7 +692,12 @@ function updateWorkerFormSelects() {
 
     const projSelect = document.getElementById('newWorkerProject');
     if (projSelect) {
-        projSelect.innerHTML = data.projects.filter(p => p.active).map(p =>
+        let projects = data.projects || [];
+        try {
+            const supaProjects = await supabaseSelectAll('projects');
+            if (supaProjects && supaProjects.length > 0) projects = supaProjects;
+        } catch (e) {}
+        projSelect.innerHTML = projects.filter(p => p.active).map(p =>
             `<option value="${p.id}">${p.name}</option>`
         ).join('');
     }
