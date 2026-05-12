@@ -2170,7 +2170,7 @@ async function renderPDFArchive() {
                 (hasImages ? ' 📷' : '') +
                 '</div>' +
                 '<button class="btn btn-outline btn-small" onclick="saveSingleWorkLogPDF(workLogs.find(function(l){return l.id==' + log.id + '}))">📄 PDF</button>' +
-                '<button class="btn btn-outline btn-small btn-delete-archive" onclick="deleteWorkLogFromArchive(' + log.id + ')" title="מחק דיווח">🗑</button>' +
+                '<button class="btn-delete-archive" onclick="deleteWorkLogFromArchive(' + log.id + ')">🗑 מחק</button>' +
                 '</div>';
         });
 

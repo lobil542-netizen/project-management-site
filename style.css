@@ -1490,16 +1490,19 @@ body {
 }
 
 .btn-delete-archive {
-    background: #dc2626 !important;
-    color: white !important;
-    border: none !important;
-    font-size: 0.75rem !important;
-    padding: 0.25rem 0.5rem !important;
+    background: #dc2626;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    padding: 0.35rem 0.7rem;
     cursor: pointer;
     flex-shrink: 0;
+    font-family: inherit;
+    white-space: nowrap;
 }
 .btn-delete-archive:hover {
-    background: #b91c1c !important;
+    background: #b91c1c;
 }
 
 /* ============================================================ */
