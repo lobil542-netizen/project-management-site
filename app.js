@@ -2547,6 +2547,56 @@ async function renderAnalytics() {
 
     attHtml += '</div></div>';
 
+    // ===== PROJECT CARDS =====
+    var projCardsHtml = '<div class="analytics-section">' +
+        '<div class="analytics-section-header">' +
+        '<h3>פרויקטים</h3>' +
+        '<button class="btn btn-primary btn-small" onclick="showModal(\'addProjectModal\')">+ הוסף פרויקט</button>' +
+        '</div>' +
+        '<div class="analytics-projects-grid">';
+
+    for (var pci = 0; pci < filteredProjects.length; pci++) {
+        var proj = filteredProjects[pci];
+        var projAtt = supabaseAttendance.filter(function(e) { return e.project === proj.name; });
+        var projCI = projAtt.filter(function(e) { return e.type === 'checkin'; });
+        var projCO = projAtt.filter(function(e) { return e.type === 'checkout'; });
+        var projTotalHours = 0;
+
+        projCI.forEach(function(ci) {
+            var co2 = projCO.find(function(c) { return c.worker_id === ci.worker_id && c.date === ci.date; });
+            if (co2) {
+                var h2 = (new Date(co2.time) - new Date(ci.time)) / (1000 * 60 * 60);
+                if (h2 > 0 && h2 < 24) projTotalHours += h2;
+            }
+        });
+
+        // הוסף שעות מיומן עבודה
+        for (var wli = 0; wli < workLogs.length; wli++) {
+            if (workLogs[wli].project === proj.name) {
+                projTotalHours += (parseFloat(workLogs[wli].hours) || 0);
+            }
+        }
+
+        var projWorkers = new Set(projAtt.map(function(e) { return e.worker_id; })).size;
+        var todayStr = new Date().toLocaleDateString('he-IL');
+        var projActive = projCI.filter(function(ci) {
+            if (ci.date !== todayStr) return false;
+            return !projCO.some(function(co2) { return co2.worker_id === ci.worker_id && co2.date === todayStr; });
+        }).length;
+
+        projCardsHtml += '<div class="analytics-project-card" onclick="openProjectDetail(\'' + proj.name.replace(/'/g, "\\'") + '\', ' + proj.id + ')">' +
+            '<div class="analytics-project-card-name">' + proj.name + '</div>' +
+            '<div class="analytics-project-card-stats">' +
+            '<span>' + projWorkers + ' עובדים</span>' +
+            '<span>' + projTotalHours.toFixed(1) + ' שעות</span>' +
+            (projActive > 0 ? '<span class="badge badge-active">' + projActive + ' נוכחים</span>' : '') +
+            '</div>' +
+            (proj.location ? '<div class="analytics-project-card-location">' + proj.location + '</div>' : '') +
+            '</div>';
+    }
+
+    projCardsHtml += '</div></div>';
+
     // ===== COMBINE ALL =====
     container.innerHTML = '<div class="analytics-dashboard">' +
         '<div class="analytics-header">' +
@@ -2554,9 +2604,130 @@ async function renderAnalytics() {
         filterHtml +
         '</div>' +
         statsHtml +
+        projCardsHtml +
         catHtml +
         attHtml +
         '</div>';
+}
+
+// ========== פתיחת פרויקט מדשבורד ==========
+async function openProjectDetail(projectName, projectId) {
+    await loadWorkLogs();
+
+    var projects = [];
+    try {
+        projects = await supabaseSelectAll('projects') || [];
+    } catch (e) {
+        projects = data.projects || [];
+    }
+
+    var project = projects.find(function(p) { return p.id === projectId; });
+    if (!project) { showToast('פרויקט לא נמצא', 'error'); return; }
+
+    var projAttendance = supabaseAttendance.filter(function(e) { return e.project === project.name; });
+    var projCheckins = projAttendance.filter(function(e) { return e.type === 'checkin'; });
+    var projCheckouts = projAttendance.filter(function(e) { return e.type === 'checkout'; });
+
+    var roleHours = {};
+    data.workerTypes.forEach(function(r) { roleHours[r] = 0; });
+
+    projCheckins.forEach(function(ci) {
+        var co = projCheckouts.find(function(c) { return c.worker_id === ci.worker_id && c.date === ci.date; });
+        if (co) {
+            var hours = (new Date(co.time) - new Date(ci.time)) / (1000 * 60 * 60);
+            if (hours > 0 && hours < 24) {
+                if (roleHours[ci.role] !== undefined) roleHours[ci.role] += hours;
+                else roleHours[ci.role] = hours;
+            }
+        }
+    });
+
+    workLogs.filter(function(wl) { return wl.project === project.name; })
+        .forEach(function(wl) {
+            var r = wl.role || '';
+            var h = parseFloat(wl.hours) || 0;
+            if (r && h > 0) {
+                if (roleHours[r] !== undefined) roleHours[r] += h;
+                else roleHours[r] = h;
+            }
+        });
+
+    var totalHours = 0;
+    for (var rk in roleHours) { if (roleHours.hasOwnProperty(rk)) totalHours += roleHours[rk]; }
+    var totalWorkers = new Set(projAttendance.map(function(e) { return e.worker_id; })).size;
+    var todayStr = new Date().toLocaleDateString('he-IL');
+    var activeNow = projCheckins.filter(function(ci) {
+        if (ci.date !== todayStr) return false;
+        return !projCheckouts.some(function(co) { return co.worker_id === ci.worker_id && co.date === todayStr; });
+    }).length;
+
+    var roleBudgets = getRoleBudgets(project.name);
+    var escapedName = project.name.replace(/'/g, "\\'");
+
+    var rolesHtml = data.workerTypes.map(function(role) {
+        var hours = roleHours[role] || 0;
+        var roleBudget = roleBudgets[role] || 0;
+        var hasBudget = roleBudget > 0;
+        var percent = hasBudget ? Math.min((hours / roleBudget) * 100, 100) : 0;
+        var isOver = hasBudget && hours > roleBudget;
+        var barColor = isOver ? 'var(--danger)' : 'var(--primary)';
+        var escapedRole = role.replace(/'/g, "\\'");
+
+        return '<div class="stage-row">' +
+            '<div class="stage-name stage-name-clickable" onclick="closeProjectDetailModal(); openRoleModal(\'' + escapedName + '\', \'' + escapedRole + '\')">' + role + '</div>' +
+            '<div class="stage-bar-container">' +
+            (hasBudget ? '<div class="stage-bar" style="width: ' + percent + '%; background: ' + barColor + ';"></div>' : '') +
+            '</div>' +
+            '<div class="stage-hours">' +
+            (hasBudget ? '<span ' + (isOver ? 'style="color: var(--danger); font-weight: 700;"' : '') + '>' + hours.toFixed(1) + ' / ' + roleBudget + (isOver ? ' <span class="stage-over">חריגה!</span>' : '') + '</span>' : '—') +
+            '</div>' +
+            '<button class="btn-quick-add" onclick="event.stopPropagation(); closeProjectDetailModal(); quickAddWorkLog(\'' + escapedName + '\', \'' + escapedRole + '\')" title="הוסף דיווח שעות">+</button>' +
+            '<button class="btn-budget-edit" onclick="event.stopPropagation(); editRoleBudget(\'' + escapedName + '\', \'' + escapedRole + '\'); openProjectDetail(\'' + escapedName + '\', ' + project.id + ')" title="הגדר תקציב שעות">⚙</button>' +
+            '</div>';
+    }).join('');
+
+    var modal = document.getElementById('projectDetailModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'projectDetailModal';
+        modal.className = 'modal';
+        document.body.appendChild(modal);
+    }
+    modal.classList.remove('hidden');
+
+    modal.innerHTML = '<div class="modal-overlay" onclick="closeProjectDetailModal()"></div>' +
+        '<div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">' +
+        '<div class="modal-header">' +
+        '<h3>' + project.name + '</h3>' +
+        '<button class="close-btn" onclick="closeProjectDetailModal()">&times;</button>' +
+        '</div>' +
+        '<div style="padding: 1.5rem;">' +
+        '<div class="project-meta" style="margin-bottom: 1rem;">' +
+        (project.location ? project.location + ' | ' : '') +
+        (project.active ? '<span class="badge badge-active">פעיל</span>' : '<span class="badge badge-inactive">לא פעיל</span>') +
+        '</div>' +
+        (project.description ? '<p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">' + project.description + '</p>' : '') +
+        '<div class="project-stats">' +
+        '<div class="project-stat"><span class="project-stat-num">' + totalWorkers + '</span><span class="project-stat-label">עובדים</span></div>' +
+        '<div class="project-stat"><span class="project-stat-num">' + activeNow + '</span><span class="project-stat-label">נוכחים כרגע</span></div>' +
+        '<div class="project-stat"><span class="project-stat-num">' + totalHours.toFixed(1) + '</span><span class="project-stat-label">סה"כ שעות</span></div>' +
+        '<div class="project-stat"><span class="project-stat-num">' + projAttendance.length + '</span><span class="project-stat-label">רשומות</span></div>' +
+        '</div>' +
+        '<div class="stages-budget-section" style="margin-top: 1rem;">' +
+        '<h4 class="stages-budget-title">שעות בפועל לפי מקצוע</h4>' +
+        '<div class="stages-budget-list">' + rolesHtml + '</div>' +
+        '</div>' +
+        '<div style="display: flex; gap: 0.5rem; margin-top: 1.5rem; justify-content: flex-end;">' +
+        '<button class="btn btn-outline btn-small" onclick="toggleProject(' + project.id + '); closeProjectDetailModal();">' + (project.active ? 'השהה' : 'הפעל') + '</button>' +
+        '<button class="btn btn-danger btn-small" onclick="deleteProject(' + project.id + '); closeProjectDetailModal();">מחק</button>' +
+        '</div>' +
+        '</div>' +
+        '</div>';
+}
+
+function closeProjectDetailModal() {
+    var modal = document.getElementById('projectDetailModal');
+    if (modal) modal.classList.add('hidden');
 }
 
 // ========== דיווח מהיר מעמודת פרויקט ==========
