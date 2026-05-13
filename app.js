@@ -1193,10 +1193,100 @@ function openRoleModal(projectName, role) {
                 `).join('')}
             </div>
             ` : '<div class="empty-state">אין עובדים רשומים במקצוע זה</div>'}
+
+            ${(() => {
+                const roleLogs = (typeof workLogs !== 'undefined' ? workLogs : [])
+                    .filter(wl => wl.project === projectName && wl.role === role)
+                    .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
+                if (roleLogs.length === 0) return '';
+                const logsTotalHours = roleLogs.reduce((sum, l) => sum + (parseFloat(l.hours) || 0), 0);
+                return `
+                <div style="border-top: 1px solid var(--border); padding-top: 1rem; margin-top: 0.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                        <h4 style="font-size: 0.95rem; color: var(--text-secondary);">דיווחי עבודה (${roleLogs.length})</h4>
+                        <button class="btn btn-outline btn-small" onclick="exportRoleWorkLogsPDF('${escapedName}', '${escapedRole}')" style="font-size: 0.75rem; padding: 0.3rem 0.6rem;">ייצוא PDF הכל</button>
+                    </div>
+                    <div style="max-height: 250px; overflow-y: auto;">
+                    ${roleLogs.map(log => {
+                        const dateDisplay = log.date ? new Date(log.date).toLocaleDateString('he-IL') : '-';
+                        const statusColor = log.status === 'תקוע' ? '#dc3545' : log.status === 'חלקי' ? '#fd7e14' : '#28a745';
+                        let hasImages = false;
+                        try { hasImages = log.images && JSON.parse(log.images).length > 0; } catch(e) {}
+                        return `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: var(--bg-input); border-radius: var(--radius-sm); margin-bottom: 0.4rem; gap: 0.5rem;">
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="font-size: 0.85rem; font-weight: 600;">${log.task || '-'}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">
+                                    ${dateDisplay} | ${log.worker || '-'} | <strong>${log.hours || 0} שעות</strong>
+                                    | <span style="color: ${statusColor}; font-weight: 700;">${log.status || '-'}</span>
+                                    ${hasImages ? ' 📷' : ''}
+                                </div>
+                                ${log.note ? `<div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">${log.note}</div>` : ''}
+                            </div>
+                            <button class="btn btn-outline btn-small" onclick="saveSingleWorkLogPDF(workLogs.find(function(l){return l.id==${log.id}}))" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; white-space: nowrap;">📄 PDF</button>
+                        </div>`;
+                    }).join('')}
+                    </div>
+                    <div style="text-align: center; margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">סה"כ ${logsTotalHours.toFixed(1)} שעות ב-${roleLogs.length} דיווחים</div>
+                </div>`;
+            })()}
         </div>
     `;
 
     modal.classList.remove('hidden');
+}
+
+// ========== ייצוא PDF לפי מקצוע ==========
+function exportRoleWorkLogsPDF(projectName, role) {
+    const roleLogs = (typeof workLogs !== 'undefined' ? workLogs : [])
+        .filter(function(wl) { return wl.project === projectName && wl.role === role; })
+        .sort(function(a, b) { return new Date(b.created_at || b.date) - new Date(a.created_at || a.date); });
+
+    if (roleLogs.length === 0) {
+        showToast('אין דיווחים לייצוא', 'error');
+        return;
+    }
+
+    const dateStr = new Date().toLocaleDateString('he-IL');
+    const totalHours = roleLogs.reduce(function(sum, l) { return sum + (parseFloat(l.hours) || 0); }, 0);
+    const workerCount = new Set(roleLogs.map(function(l) { return l.worker; })).size;
+
+    const rows = roleLogs.map(function(log) {
+        const dateDisplay = log.date ? new Date(log.date).toLocaleDateString('he-IL') : '-';
+        const sc = log.status === 'תקוע' ? 'status-stuck' : log.status === 'חלקי' ? 'status-partial' : 'status-advanced';
+        return '<tr><td>' + dateDisplay + '</td><td>' + (log.task||'-') + '</td><td><strong>' + (log.hours||0) + '</strong></td><td>' + (log.worker||'-') + '</td><td class="' + sc + '">' + (log.status||'-') + '</td><td>' + (log.note||'-') + '</td></tr>';
+    }).join('');
+
+    const html = '<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>דיווחי ' + role + ' - ' + projectName + '</title>' +
+        '<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Tahoma,Arial,sans-serif;padding:30px;direction:rtl}' +
+        '.header{text-align:center;margin-bottom:25px;border-bottom:3px solid #1e3a5f;padding-bottom:15px}' +
+        '.header h1{font-size:22px;color:#1e3a5f}.header h2{font-size:18px;color:#333;margin-top:5px}' +
+        '.header p{color:#666;font-size:13px;margin-top:5px}' +
+        '.summary{display:flex;gap:20px;margin-bottom:20px}' +
+        '.summary-item{flex:1;background:#f0f4f8;padding:12px;border-radius:8px;text-align:center}' +
+        '.summary-item .num{font-size:24px;font-weight:800;color:#1e3a5f}' +
+        '.summary-item .label{font-size:12px;color:#666}' +
+        'table{width:100%;border-collapse:collapse;margin-bottom:20px}' +
+        'th{background:#1e3a5f;color:#fff;padding:10px 8px;font-size:13px}' +
+        'td{padding:8px;border-bottom:1px solid #ddd;font-size:12px}' +
+        'tr:nth-child(even){background:#f8f9fa}' +
+        '.status-stuck{color:#dc3545;font-weight:700}' +
+        '.status-partial{color:#fd7e14;font-weight:700}' +
+        '.status-advanced{color:#28a745;font-weight:700}' +
+        '.footer{text-align:center;color:#999;font-size:11px;margin-top:20px;border-top:1px solid #ddd;padding-top:10px}</style></head>' +
+        '<body><div class="header"><h1>SKELETON CONSTRUCTION</h1><h2>דיווחי ' + role + ' - ' + projectName + '</h2><p>תאריך הפקה: ' + dateStr + '</p></div>' +
+        '<div class="summary"><div class="summary-item"><div class="num">' + roleLogs.length + '</div><div class="label">דיווחים</div></div>' +
+        '<div class="summary-item"><div class="num">' + totalHours.toFixed(1) + '</div><div class="label">סה"כ שעות</div></div>' +
+        '<div class="summary-item"><div class="num">' + workerCount + '</div><div class="label">עובדים</div></div></div>' +
+        '<table><thead><tr><th>תאריך</th><th>משימה</th><th>שעות</th><th>מבצע</th><th>סטטוס</th><th>הערה</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody></table>' +
+        '<div class="footer">SKELETON CONSTRUCTION - מערכת פיקוח פרויקטים</div></body></html>';
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(function() { printWindow.print(); }, 500);
 }
 
 // ========== רינדור פרויקטים ==========
