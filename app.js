@@ -1097,7 +1097,8 @@ function editRoleBudget(projectName, role) {
 }
 
 // ========== חלונית מקצוע ==========
-function openRoleModal(projectName, role) {
+async function openRoleModal(projectName, role) {
+    await loadWorkLogs();
     const roleBudgets = getRoleBudgets(projectName);
     const budget = roleBudgets[role] || 0;
     const hasBudget = budget > 0;
